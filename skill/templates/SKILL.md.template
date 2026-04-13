@@ -1,0 +1,72 @@
+---
+name: {{NAME}}
+# Skill identifier. Lowercase, digits, and hyphens only, max 64 characters.
+# Must match the skill directory name. If omitted, the directory name is used.
+
+description: {{DESCRIPTION}}
+# What the skill does and when to use it. MUST be under 250 characters.
+# Front-load the key use case with keywords users would naturally say.
+# Do not summarize the skill's internal workflow here.
+
+argument-hint: {{ARGUMENT_HINT}}
+# Autocomplete hint shown in the slash-command menu.
+# Examples: [filename], [issue-number], [block-name] [category]
+# Remove this field if the skill takes no arguments.
+
+allowed-tools: {{ALLOWED_TOOLS}}
+# Tools pre-approved for use without permission prompts when this skill is active.
+# Space-separated string or YAML list. Scope to the strict minimum.
+# This pre-approves only — it does NOT restrict available tools.
+# Remove this field if no pre-approval is needed.
+
+paths: {{PATHS}}
+# Glob patterns limiting auto-activation to matching files.
+# Comma-separated string or YAML list. Examples: src/**/*.ts, *.py, wp-content/**
+# Remove this field if the skill should activate on conversation context alone.
+---
+
+# {{NAME}}
+
+<!-- ============================================================ -->
+<!-- COMPACTION ZONE: The first 5,000 tokens survive compaction.   -->
+<!-- Place critical rules and constraints here.                    -->
+<!-- ============================================================ -->
+
+## Core rules
+
+<!-- Standing instructions that persist throughout the entire session.      -->
+<!-- These are NOT one-shot steps — they remain in effect until session end. -->
+
+- ...
+- ...
+
+## Before starting
+
+<!-- Pre-checks, prerequisites, or calibration questions to ask the user. -->
+
+1. ...
+2. ...
+
+## Execution
+
+<!-- Main workflow. Reference bundled files with ${CLAUDE_SKILL_DIR}:         -->
+<!-- Example: Read `${CLAUDE_SKILL_DIR}/references/conventions.md` for...     -->
+<!-- Use variable substitutions: $0, $1, $ARGUMENTS, ${CLAUDE_SESSION_ID}     -->
+
+1. ...
+2. ...
+
+## After completion
+
+<!-- Validation, output summary, next steps for the user. -->
+
+1. ...
+2. ...
+
+## Standing constraints
+
+<!-- Persistent rules enforced throughout the task. -->
+<!-- Examples: naming conventions, forbidden patterns, style rules. -->
+
+- Never ...
+- Always ...

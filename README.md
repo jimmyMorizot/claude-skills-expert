@@ -65,4 +65,3 @@ MIT — use freely, attribute if you share.
 ## Author
 
 Jimmy Morizot — web developer at [CreatisWeb](https://creatisweb.com).
-# claude-skills-expert

@@ -1,0 +1,8 @@
+# Local references — not part of the distribution
+references/anthropic-skills-examples/
+
+# OS / editor noise
+.DS_Store
+*.swp
+.vscode/
+.idea/
