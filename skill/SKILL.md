@@ -2,8 +2,15 @@
 name: skill-architect
 description: Create and scaffold Claude Code skills with spec-compliant SKILL.md, frontmatter, and directory structure. Use when building new skills, generating SKILL.md files, or checking conformance against the official Anthropic specification.
 argument-hint: [skill-name]
-allowed-tools: Read Write Bash(mkdir *) Bash(ls *) Bash(cat *) Bash(cp *)
+allowed-tools: Read Write Bash(mkdir *) Bash(ls *) Bash(find *) Bash(cp *)
 ---
+
+<!--
+Description length: 246/250 characters. The 4-character buffer is intentional —
+all keywords are needed for accurate auto-invocation. Do not shorten without
+verifying that "spec-compliant", "frontmatter", and "Anthropic specification"
+remain present in the description.
+-->
 
 # Skill Architect
 
@@ -86,7 +93,7 @@ Read the template at `${CLAUDE_SKILL_DIR}/templates/SKILL.md.template` for the s
 - Open with the most critical rules and constraints — these survive compaction.
 - Write as standing instructions that remain valid throughout the session.
 - Reference every supporting file explicitly with `${CLAUDE_SKILL_DIR}/path/to/file` and explain when Claude should read it.
-- Use variable substitutions where applicable: `$0`, `$1`, `$ARGUMENTS`, `${CLAUDE_SESSION_ID}`, `${CLAUDE_SKILL_DIR}`.
+- Use variable substitutions where applicable — see complete list in `${CLAUDE_SKILL_DIR}/references/skills-spec-officielle.md` section 5.
 - Prefer imperative form ("Read the file", "Verify the output").
 - If the body risks exceeding 5,000 tokens, move detailed reference content into supporting files under `references/`.
 

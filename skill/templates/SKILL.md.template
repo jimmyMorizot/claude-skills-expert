@@ -23,6 +23,16 @@ paths: {{PATHS}}
 # Glob patterns limiting auto-activation to matching files.
 # Comma-separated string or YAML list. Examples: src/**/*.ts, *.py, wp-content/**
 # Remove this field if the skill should activate on conversation context alone.
+
+# Advanced optional fields — uncomment only if needed:
+# disable-model-invocation: true   # Prevent auto-invocation; user must call /skill-name manually.
+# user-invocable: false            # Hide from / menu; Claude can still auto-invoke it.
+# model: claude-opus-4-6          # Override the model used when this skill is active.
+# effort: high                    # Effort level: low | medium | high | max (max = Opus 4.6 only).
+# context: fork                   # Execute in a forked subagent instead of inline.
+# agent: Explore                  # Subagent type when context: fork (e.g. Explore, general-purpose).
+# hooks: ...                      # Lifecycle hooks scoped to this skill's session.
+# shell: bash                     # Shell for injection blocks: bash (default) | powershell.
 ---
 
 # {{NAME}}

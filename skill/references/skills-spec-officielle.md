@@ -72,7 +72,7 @@ Seul `SKILL.md` est requis. Tous les autres fichiers sont optionnels. **Référe
 
 Le `SKILL.md` commence par un bloc YAML entre `---`. **Tous les champs sont optionnels**. Seul `description` est recommandé pour que Claude sache quand utiliser le skill.
 
-### Tableau exhaustif des 12 champs officiels
+### Tableau exhaustif des 13 champs officiels
 
 | Champ | Requis | Description |
 |---|---|---|
