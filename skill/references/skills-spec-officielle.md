@@ -242,6 +242,33 @@ Generate a WordPress FSE block named `$0` in category `$1`.
 3. Reformuler la requête pour matcher la description.
 4. Invoquer directement avec `/skill-name`.
 
+### ⚠️ Bug empirique — `paths` avec globs `**` (non documenté par Anthropic)
+
+**Symptôme** : une skill avec un frontmatter YAML parfaitement valide n'apparaît **pas** dans `What skills are available?`. Aucune erreur visible.
+
+**Cause** : le loader Claude Code rejette silencieusement toute skill dont le champ `paths` contient des wildcards `**`, que ce soit en chaîne comma-separated ou en YAML-liste quoted. Observation confirmée sur Linux avec Claude Code 1.x (avril 2026).
+
+**Workaround** :
+- Supprimer le champ `paths` entièrement.
+- Encoder les keywords d'activation (noms de fichiers, frameworks, technos) dans la `description`.
+- L'auto-invocation contextuelle fonctionne alors normalement.
+
+**Exemples qui cassent** :
+```yaml
+paths: "**/Dockerfile, **/Caddyfile"
+paths:
+  - "**/theme.json"
+  - "docker/**"
+```
+
+**Exemples qui fonctionnent** :
+```yaml
+paths: Dockerfile, docker-compose.yml
+paths:
+  - theme.json
+  - composer.json
+```
+
 ### Skill se déclenche trop souvent
 
 1. Rendre la `description` plus spécifique.

@@ -40,6 +40,22 @@ These rules apply throughout the entire session, for every skill generated:
 - The `allowed-tools` field **pre-approves** tools — it does **not restrict** them. Scope it to the minimum necessary.
 - Include only frontmatter fields relevant to the specific skill. Omit fields that would use default values.
 
+### ⚠️ Known Claude Code loading bug — `paths` with glob patterns
+
+**Documented empirically, not in official spec.** The Claude Code skill loader silently rejects any skill whose `paths` field contains glob patterns with `**` wildcards — even when the YAML is syntactically valid AND even when quoted as a YAML list. The skill simply does not appear in the available-skills list, with no error reported.
+
+**Mandatory rule:** do NOT emit a `paths` field containing `**` in any generated skill. Acceptable patterns are:
+- Exact filenames: `Dockerfile`, `composer.json`, `theme.json`
+- Simple globs without `**`: `*.ts`, `*.py`, `src/*.tsx`
+
+If the user requests auto-activation on a broad set of files (e.g., "all Dockerfiles anywhere in the project"), **omit `paths` entirely** and instead enrich the `description` with the triggering keywords (file types, framework names, technology terms). Context-based auto-invocation works reliably; `paths` with `**` does not.
+
+This bug has been observed on :
+- `~/.claude/skills/frankenphp/` (before fix)
+- `~/.claude/skills/fse-spectra-gutenberg/` (before fix)
+
+When auditing an existing skill that does not appear in the list, check for `paths` with `**` first.
+
 ## Phase 1 — Before creation
 
 When invoked with `/skill-architect $0`, start by gathering requirements. Ask the user the following calibration questions before writing any file:
@@ -50,7 +66,7 @@ When invoked with `/skill-architect $0`, start by gathering requirements. Ask th
    - Personal: `~/.claude/skills/$0/` (available across all projects)
    - Project: `.claude/skills/$0/` (this project only)
    - Plugin: `<plugin>/skills/$0/` (scoped to plugin activation)
-4. **Target files:** Are there specific file patterns where this skill should auto-activate? (maps to the `paths` field, e.g., `src/**/*.ts`, `*.py`). Leave empty if the skill should activate on conversation context alone.
+4. **Target files:** Are there specific file patterns where this skill should auto-activate? (maps to the `paths` field). **⚠️ Avoid `**` wildcards — they break skill loading.** Use exact filenames (`Dockerfile`, `theme.json`) or simple globs (`*.ts`). If the user needs `**`-style broad matching, omit `paths` and rely on description keywords for context-based auto-invocation. Leave empty for pure context activation.
 5. **Invocation mode:** Should Claude auto-invoke this skill when the conversation context matches, or should it be manual-only? (maps to `disable-model-invocation: true` if manual-only)
 6. **Tools needed:** Which tools should be pre-approved without permission prompts? (maps to `allowed-tools`). Examples: `Read`, `Write`, `Bash(npm *)`, `Bash(git *)`.
 7. **Supporting files:** Does the skill need bundled references, templates, or scripts? If yes, describe their purpose.
@@ -80,7 +96,7 @@ Read the template at `${CLAUDE_SKILL_DIR}/templates/SKILL.md.template` for the s
 - Always include `name` and `description`.
 - Add `argument-hint` only if the skill accepts arguments.
 - Add `allowed-tools` only if tools need pre-approval.
-- Add `paths` only if file-pattern activation is desired.
+- Add `paths` only if file-pattern activation is desired AND the patterns do not contain `**` wildcards. If `**` is needed, omit `paths` entirely and encode the triggering keywords in `description` instead.
 - Add `disable-model-invocation: true` only if manual-only.
 - Every field must be verified against the spec before inclusion. If in doubt, read the spec.
 
@@ -114,7 +130,7 @@ Validate the generated skill against the full checklist. Present each point with
 3. **Valid frontmatter** — YAML block between `---` delimiters, parseable without errors.
 4. **Description present and compliant** — under 250 characters, keywords front-loaded.
 5. **Manual-only flag** — `disable-model-invocation: true` present if and only if the user requested manual-only invocation.
-6. **File-pattern activation** — `paths` defined with correct globs if and only if the user specified target files.
+6. **File-pattern activation** — `paths` defined only with exact filenames or `**`-free globs. If `paths` is present, grep for `**` — if found, FAIL this check and rewrite to put the keywords in `description`.
 7. **Allowed-tools scoped** — pre-approves only the tools strictly necessary for the skill's workflow.
 8. **Standing instructions** — body instructions are persistent, not one-shot.
 9. **Critical content placement** — critical rules within the first 5,000 tokens of the body.
