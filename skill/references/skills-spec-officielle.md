@@ -87,7 +87,7 @@ Le `SKILL.md` commence par un bloc YAML entre `---`. **Tous les champs sont opti
 | `context` | Non | `fork` pour exécuter dans un subagent forké. |
 | `agent` | Non | Type de subagent à utiliser quand `context: fork` est défini. |
 | `hooks` | Non | Hooks scopés au lifecycle du skill. |
-| `paths` | Non | Glob patterns limitant l'activation aux fichiers matchant. String comma-separated ou liste YAML. |
+| `paths` | Non | ⚠️ **À ne pas utiliser sur CC 2.x** : casse le chargement du skill (rejet silencieux quelle que soit la valeur). Mettre les mots-clés de ciblage dans `description` à la place. |
 | `shell` | Non | `bash` (défaut) ou `powershell` pour les blocs d'injection shell. |
 
 ### Matrice d'invocation (table officielle)
@@ -192,7 +192,6 @@ name: wp-fse-component
 description: Generate a WordPress FSE block component following CreatisWeb conventions. Use when scaffolding new Gutenberg blocks, creating block.json, or when the user mentions FSE, full site editing, or block development.
 argument-hint: [block-name] [block-category]
 allowed-tools: Read Write Bash(npx @wordpress/create-block *)
-paths: wp-content/themes/**, blocks/**
 ---
 
 Generate a WordPress FSE block named `$0` in category `$1`.
@@ -224,7 +223,7 @@ Generate a WordPress FSE block named `$0` in category `$1`.
 
 **Pourquoi ce template est exemplaire** :
 - `description` front-loadée avec keywords (FSE, Gutenberg, block) sous 250 caractères.
-- `paths` pour activation contextuelle automatique uniquement dans les répertoires WordPress.
+- Pas de champ `paths` (il casse le chargement sur CC 2.x) — le ciblage WordPress est encodé dans les mots-clés de la `description`.
 - `allowed-tools` scopé au strict nécessaire.
 - Utilisation de `${CLAUDE_SKILL_DIR}` pour référencer les fichiers supports indépendamment du cwd.
 - Structure « Avant / Pendant / Après » naturelle (utile, mais pas un dogme).
@@ -242,31 +241,27 @@ Generate a WordPress FSE block named `$0` in category `$1`.
 3. Reformuler la requête pour matcher la description.
 4. Invoquer directement avec `/skill-name`.
 
-### ⚠️ Bug empirique — `paths` avec globs `**` (non documenté par Anthropic)
+### ⚠️ Bug empirique — le champ `paths` (vérifié CC 2.1.160, juin 2026)
 
-**Symptôme** : une skill avec un frontmatter YAML parfaitement valide n'apparaît **pas** dans `What skills are available?`. Aucune erreur visible.
+**Symptôme** : un skill au frontmatter YAML parfaitement valide n'apparaît **pas** dans `What skills are available?`. Aucune erreur visible. `/reload-skills` affiche "no changes".
 
-**Cause** : le loader Claude Code rejette silencieusement toute skill dont le champ `paths` contient des wildcards `**`, que ce soit en chaîne comma-separated ou en YAML-liste quoted. Observation confirmée sur Linux avec Claude Code 1.x (avril 2026).
+**Cause** : sur Claude Code 2.x, le loader rejette silencieusement tout skill dont le frontmatter contient un champ `paths`, **quelle que soit sa valeur** — noms de fichiers exacts, glob simple `*.twig`, glob `**`, en chaîne comma-separated comme en liste YAML. Vérifié empiriquement sur Linux, CC 2.1.160 (juin 2026), via 7 canaris : seul le skill SANS `paths` charge. (Sur CC 1.x / avril 2026, seuls les `**` cassaient ; le bug s'est élargi depuis.)
 
 **Workaround** :
 - Supprimer le champ `paths` entièrement.
 - Encoder les keywords d'activation (noms de fichiers, frameworks, technos) dans la `description`.
 - L'auto-invocation contextuelle fonctionne alors normalement.
 
-**Exemples qui cassent** :
-```yaml
-paths: "**/Dockerfile, **/Caddyfile"
-paths:
-  - "**/theme.json"
-  - "docker/**"
-```
+**À noter** : les clés frontmatter inconnues sont ignorées sans casser le chargement (un champ `globs` bidon charge mais ne fait rien). Le rejet vient du traitement de `paths` lui-même, pas d'une validation stricte de schéma. Remplacer `paths` par `globs` ou un autre champ inventé est inutile.
 
-**Exemples qui fonctionnent** :
+**Tous ces cas CASSENT le chargement sur CC 2.x** :
 ```yaml
-paths: Dockerfile, docker-compose.yml
+paths: Dockerfile, composer.json
+paths: "*.twig"
+paths: "**/Dockerfile"
 paths:
   - theme.json
-  - composer.json
+  - "*.css"
 ```
 
 ### Skill se déclenche trop souvent

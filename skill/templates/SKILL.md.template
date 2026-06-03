@@ -10,7 +10,9 @@ description: {{DESCRIPTION}}
 
 argument-hint: {{ARGUMENT_HINT}}
 # Autocomplete hint shown in the slash-command menu.
-# Examples: [filename], [issue-number], [block-name] [category]
+# ⚠️ Quoter si la valeur contient des crochets : "[filename]" — sinon YAML la lit comme
+#    une liste et le skill est rejeté (« argument-hint must be a string »).
+# Examples: "[filename]", "[issue-number]", "[block-name] [category]"
 # Remove this field if the skill takes no arguments.
 
 allowed-tools: {{ALLOWED_TOOLS}}
@@ -19,10 +21,10 @@ allowed-tools: {{ALLOWED_TOOLS}}
 # This pre-approves only — it does NOT restrict available tools.
 # Remove this field if no pre-approval is needed.
 
-paths: {{PATHS}}
-# Glob patterns limiting auto-activation to matching files.
-# Comma-separated string or YAML list. Examples: src/**/*.ts, *.py, wp-content/**
-# Remove this field if the skill should activate on conversation context alone.
+# ⚠️ NE PAS utiliser le champ `paths` : il casse le chargement du skill sur Claude Code 2.x
+# (rejet silencieux quelle que soit la valeur — noms exacts, *.glob, ** ...). Pour cibler des
+# fichiers, mettre les mots-clés de déclenchement dans `description` et compter sur
+# l'auto-invocation par contexte. Les clés inventées (globs, etc.) sont ignorées, inutiles.
 
 # Advanced optional fields — uncomment only if needed:
 # disable-model-invocation: true   # Prevent auto-invocation; user must call /skill-name manually.

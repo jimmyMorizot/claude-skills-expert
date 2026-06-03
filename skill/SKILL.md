@@ -1,7 +1,7 @@
 ---
 name: skill-architect
 description: Create and scaffold Claude Code skills with spec-compliant SKILL.md, frontmatter, and directory structure. Use when building new skills, generating SKILL.md files, or checking conformance against the official Anthropic specification.
-argument-hint: [skill-name]
+argument-hint: "[skill-name]"
 allowed-tools: Read Write Bash(mkdir *) Bash(ls *) Bash(find *) Bash(cp *)
 ---
 
@@ -31,7 +31,7 @@ If a user mentions these concepts, explain they are undocumented folklore and re
 These rules apply throughout the entire session, for every skill generated:
 
 - Every generated SKILL.md must have valid YAML frontmatter between `---` delimiters.
-- Only use frontmatter fields documented in the spec (section 4). The official fields are: `name`, `description`, `argument-hint`, `disable-model-invocation`, `user-invocable`, `allowed-tools`, `model`, `effort`, `context`, `agent`, `hooks`, `paths`, `shell`. No other field is permitted.
+- Only use frontmatter fields documented in the spec (section 4). The official fields are: `name`, `description`, `argument-hint`, `disable-model-invocation`, `user-invocable`, `allowed-tools`, `model`, `effort`, `context`, `agent`, `hooks`, `paths`, `shell`. No other field is permitted. **Exception : ne JAMAIS émettre `paths` — bug de chargement Claude Code 2.x, voir la section ci-dessous.**
 - The `description` field must be present, under 250 characters, with keywords front-loaded that users would naturally say.
 - Directory names: lowercase, digits, and hyphens only, max 64 characters. No underscores, no spaces, no uppercase.
 - Write all SKILL.md body instructions as **standing instructions** (persistent across the session), never as one-shot steps that become irrelevant after execution.
@@ -40,21 +40,31 @@ These rules apply throughout the entire session, for every skill generated:
 - The `allowed-tools` field **pre-approves** tools — it does **not restrict** them. Scope it to the minimum necessary.
 - Include only frontmatter fields relevant to the specific skill. Omit fields that would use default values.
 
-### ⚠️ Known Claude Code loading bug — `paths` with glob patterns
+### ⚠️ Bug de chargement Claude Code — champ `paths` (vérifié CC 2.1.160, juin 2026)
 
-**Documented empirically, not in official spec.** The Claude Code skill loader silently rejects any skill whose `paths` field contains glob patterns with `**` wildcards — even when the YAML is syntactically valid AND even when quoted as a YAML list. The skill simply does not appear in the available-skills list, with no error reported.
+**Empirique, hors spec officielle.** Sur Claude Code 2.x, le loader rejette **en silence** tout skill dont le frontmatter contient un champ `paths`, **quelle que soit sa valeur** : noms de fichiers exacts (`composer.json`), glob simple (`*.twig`), glob `**`, en chaîne comma-separated comme en liste YAML. Le skill n'apparaît jamais dans la liste, aucun message d'erreur, `/reload-skills` affiche "no changes". (Sur CC 1.x en avril 2026, seuls les `**` cassaient ; le bug s'est élargi à toute valeur sur 2.x — vérifié sur 2.1.160 via 7 canaris, seul le skill SANS `paths` charge.)
 
-**Mandatory rule:** do NOT emit a `paths` field containing `**` in any generated skill. Acceptable patterns are:
-- Exact filenames: `Dockerfile`, `composer.json`, `theme.json`
-- Simple globs without `**`: `*.ts`, `*.py`, `src/*.tsx`
+**Règle obligatoire :** ne JAMAIS émettre de champ `paths` dans un skill généré, tant que le bug persiste côté Claude Code. Pour cibler des fichiers, encoder les mots-clés de déclenchement (types de fichiers, noms de techno, framework) dans `description` — l'auto-invocation par contexte marche de façon fiable.
 
-If the user requests auto-activation on a broad set of files (e.g., "all Dockerfiles anywhere in the project"), **omit `paths` entirely** and instead enrich the `description` with the triggering keywords (file types, framework names, technology terms). Context-based auto-invocation works reliably; `paths` with `**` does not.
+**Note :** les clés frontmatter inconnues sont *ignorées* sans casser le chargement (vérifié avec un champ `globs` bidon : le skill charge, mais le champ ne fait rien). Seul `paths`, clé *reconnue* au traitement buggé, fait planter. Remplacer `paths` par un champ inventé (`globs`, etc.) ne sert donc à rien.
 
-This bug has been observed on :
-- `~/.claude/skills/frankenphp/` (before fix)
-- `~/.claude/skills/fse-spectra-gutenberg/` (before fix)
+Lors d'un audit d'un skill absent de la liste : vérifier la présence de `paths` en premier, et le supprimer.
 
-When auditing an existing skill that does not appear in the list, check for `paths` with `**` first.
+### Compatibilité plateformes — un SKILL.md, 3 schémas
+
+Un SKILL.md peut être consommé par 3 plateformes aux frontmatter **différents**. Ne JAMAIS présenter les champs Claude Code comme universels. Toujours demander/déduire la cible avant de choisir les champs.
+
+| Champ frontmatter | Claude Code | claude.ai (standard ouvert) | Agents VS Code |
+|---|:---:|:---:|:---:|
+| `name`, `description` | ✅ (`description` requise) | ✅ (les 2 requis) | ✅ |
+| `argument-hint`, `disable-model-invocation`, `user-invocable`, `context` | ✅ | ✅ standard | ✅ |
+| `allowed-tools`, `disallowed-tools`, `model`, `effort`, `agent`, `hooks`, `paths`, `shell`, `arguments`, `when_to_use` | ✅ extensions CC | ❌ hors standard (ignoré ou refusé) | ❌ refusé |
+| `license`, `compatibility`, `metadata` | ❌ | ✅ standard | ✅ |
+
+Règles selon la cible :
+- **Skill Claude Code** : champs CC autorisés, SAUF `paths` (bug 2.x ci-dessus).
+- **Skill claude.ai** (téléversé en zip via Réglages → Fonctionnalités) : frontmatter **minimal `name` + `description`**. Aucune extension CC (`allowed-tools`, `paths`, `model`…) — claude.ai ne les supporte pas. Réf. : standard ouvert agentskills.io.
+- **Cible inconnue / portable** : se limiter à `name` + `description` + champs standard.
 
 ## Phase 1 — Before creation
 
@@ -66,7 +76,7 @@ When invoked with `/skill-architect $0`, start by gathering requirements. Ask th
    - Personal: `~/.claude/skills/$0/` (available across all projects)
    - Project: `.claude/skills/$0/` (this project only)
    - Plugin: `<plugin>/skills/$0/` (scoped to plugin activation)
-4. **Target files:** Are there specific file patterns where this skill should auto-activate? (maps to the `paths` field). **⚠️ Avoid `**` wildcards — they break skill loading.** Use exact filenames (`Dockerfile`, `theme.json`) or simple globs (`*.ts`). If the user needs `**`-style broad matching, omit `paths` and rely on description keywords for context-based auto-invocation. Leave empty for pure context activation.
+4. **Target files:** Y a-t-il des fichiers où ce skill devrait s'auto-activer ? **⚠️ Ne PAS utiliser le champ `paths` — il casse le chargement sur Claude Code 2.x quelle que soit sa valeur.** À la place, encoder les mots-clés de ciblage (types de fichiers, noms de techno, framework) dans la `description` ; l'auto-invocation par contexte s'en charge.
 5. **Invocation mode:** Should Claude auto-invoke this skill when the conversation context matches, or should it be manual-only? (maps to `disable-model-invocation: true` if manual-only)
 6. **Tools needed:** Which tools should be pre-approved without permission prompts? (maps to `allowed-tools`). Examples: `Read`, `Write`, `Bash(npm *)`, `Bash(git *)`.
 7. **Supporting files:** Does the skill need bundled references, templates, or scripts? If yes, describe their purpose.
@@ -94,9 +104,9 @@ Read the template at `${CLAUDE_SKILL_DIR}/templates/SKILL.md.template` for the s
 
 **Frontmatter construction:**
 - Always include `name` and `description`.
-- Add `argument-hint` only if the skill accepts arguments.
+- Add `argument-hint` only if the skill accepts arguments. **Si la valeur contient des crochets, la quoter** : `argument-hint: "[filename]"`. Sinon YAML la lit comme une liste et le skill est rejeté avec « argument-hint must be a string ».
 - Add `allowed-tools` only if tools need pre-approval.
-- Add `paths` only if file-pattern activation is desired AND the patterns do not contain `**` wildcards. If `**` is needed, omit `paths` entirely and encode the triggering keywords in `description` instead.
+- Ne JAMAIS ajouter `paths` : ce champ casse le chargement sur Claude Code 2.x quelle que soit sa valeur. Encoder les mots-clés de ciblage dans `description` à la place.
 - Add `disable-model-invocation: true` only if manual-only.
 - Every field must be verified against the spec before inclusion. If in doubt, read the spec.
 
@@ -130,7 +140,7 @@ Validate the generated skill against the full checklist. Present each point with
 3. **Valid frontmatter** — YAML block between `---` delimiters, parseable without errors.
 4. **Description present and compliant** — under 250 characters, keywords front-loaded.
 5. **Manual-only flag** — `disable-model-invocation: true` present if and only if the user requested manual-only invocation.
-6. **File-pattern activation** — `paths` defined only with exact filenames or `**`-free globs. If `paths` is present, grep for `**` — if found, FAIL this check and rewrite to put the keywords in `description`.
+6. **Absence de `paths`** — le champ `paths` doit être ABSENT du frontmatter (il casse le chargement sur CC 2.x quelle que soit sa valeur). S'il est présent, FAIL : le supprimer et déplacer les mots-clés de ciblage dans `description`.
 7. **Allowed-tools scoped** — pre-approves only the tools strictly necessary for the skill's workflow.
 8. **Standing instructions** — body instructions are persistent, not one-shot.
 9. **Critical content placement** — critical rules within the first 5,000 tokens of the body.
