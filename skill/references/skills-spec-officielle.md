@@ -83,7 +83,7 @@ Le `SKILL.md` commence par un bloc YAML entre `---`. **Tous les champs sont opti
 | `user-invocable` | Non | `false` cache le skill du menu `/`. Pour du background knowledge non invocable directement. Défaut : `true`. |
 | `allowed-tools` | Non | Outils utilisables sans demande de permission quand le skill est actif. String séparée par espaces ou liste YAML. **Ne restreint pas** les outils — pré-approuve seulement. |
 | `model` | Non | Modèle à utiliser quand le skill est actif. |
-| `effort` | Non | Niveau d'effort. Options : `low`, `medium`, `high`, `max` (Opus 4.6 uniquement). Override l'effort de session. |
+| `effort` | Non | Niveau d'effort. Options : `low`, `medium`, `high`, `xhigh`, `max`. Override l'effort de session. |
 | `context` | Non | `fork` pour exécuter dans un subagent forké. |
 | `agent` | Non | Type de subagent à utiliser quand `context: fork` est défini. |
 | `hooks` | Non | Hooks scopés au lifecycle du skill. |
@@ -300,7 +300,7 @@ Avant de considérer un skill comme prêt pour CreatisWeb :
 - [ ] Frontmatter valide entre `---`.
 - [ ] `description` présente, sous 250 caractères, avec keywords front-loadés.
 - [ ] Si invocation manuelle uniquement : `disable-model-invocation: true`.
-- [ ] Si activation contextuelle par fichiers : `paths` défini avec globs.
+- [ ] Champ `paths` ABSENT du frontmatter (bug CC 2.x : rejet silencieux du skill — encoder les mots-clés de ciblage dans `description`).
 - [ ] `allowed-tools` scopé au strict minimum.
 - [ ] Instructions écrites comme **standing instructions** (pas one-shot).
 - [ ] Instructions critiques dans les **5 000 premiers tokens**.
