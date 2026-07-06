@@ -1,14 +1,14 @@
 ---
 name: skill-architect
-description: Create and scaffold Claude Code skills with spec-compliant SKILL.md, frontmatter, and directory structure. Use when building new skills, generating SKILL.md files, or checking conformance against the official Anthropic specification.
+description: Create, scaffold, test and improve Claude Code skills with spec-compliant SKILL.md and frontmatter. Use when building new skills, generating SKILL.md, testing or optimizing a skill, or checking conformance against the official Anthropic spec.
 argument-hint: "[skill-name]"
 allowed-tools: Read Write Bash(mkdir *) Bash(ls *) Bash(find *) Bash(cp *)
 ---
 
 <!--
-Description length: 246/250 characters. The 4-character buffer is intentional —
-all keywords are needed for accurate auto-invocation. Do not shorten without
-verifying that "spec-compliant", "frontmatter", and "Anthropic specification"
+Description length: 242/250 characters. The buffer is intentional — all keywords
+are needed for accurate auto-invocation. Do not shorten without verifying that
+"spec-compliant", "frontmatter", "testing or optimizing" and "Anthropic spec"
 remain present in the description.
 -->
 
@@ -18,13 +18,14 @@ remain present in the description.
 
 **Anti-folklore rule:** Never use the following terms in any skill you generate — they do not exist in the official Anthropic specification and must never appear in generated SKILL.md files:
 - "Tier 1", "Tier 2", "Tier 3"
-- "Pushy" (as a description style qualifier)
 - "V1", "V2" (as skill specification versions)
 - "Objectif Supreme"
 - "~100 tokens scan"
 - "Architecture Indentee chronologique"
 
 If a user mentions these concepts, explain they are undocumented folklore and redirect to the embedded spec.
+
+**Cas particulier « pushy »** : hors spec, mais le skill-creator natif d'Anthropic recommande des descriptions « un peu pushy » contre le sous-déclenchement. Choix assumé ici : description **sobre, keywords front-loadés** — une description gonflée pousse l'agent à suivre la description au lieu de lire le corps du skill. Si l'utilisateur cite le natif, expliquer ce choix (ce n'est pas du folklore, c'est un arbitrage différent) ; la Phase 5 traite le sous-déclenchement par le test, pas par l'inflation.
 
 ## Standing rules for all skill creation
 
@@ -66,6 +67,13 @@ Règles selon la cible :
 - **Skill claude.ai** (téléversé en zip via Réglages → Fonctionnalités) : frontmatter **minimal `name` + `description`**. Aucune extension CC (`allowed-tools`, `paths`, `model`…) — claude.ai ne les supporte pas. Réf. : standard ouvert agentskills.io.
 - **Cible inconnue / portable** : se limiter à `name` + `description` + champs standard.
 
+## Principes d'écriture (appliqués en Phase 2, vérifiés en Phase 3)
+
+- **Expliquer le pourquoi.** Préférer une consigne motivée (« vérifier X, car Y casse sinon ») aux MUST/NEVER en majuscules. Un impératif nu invite le modèle à négocier ; une raison compréhensible le fait adhérer. Réserver les majuscules aux 2-3 règles réellement non négociables.
+- **Généraliser, ne pas overfitter.** Un skill sera utilisé sur des cas jamais vus. Si une règle ne sert qu'à faire passer l'exemple qui l'a inspirée, la reformuler en principe général ou la supprimer.
+- **Bundler le travail répété.** Si les tests (Phase 4) montrent que chaque run réécrit le même script ou refait la même séquence, extraire ce travail dans `scripts/` ou `references/` et faire pointer le SKILL.md dessus. Écrire une fois, réutiliser à chaque invocation.
+- **Rester maigre.** Chaque ligne du corps coûte du contexte à chaque activation. Supprimer ce qui ne change pas le comportement du modèle.
+
 ## Phase 1 — Before creation
 
 When invoked with `/skill-architect $0`, start by gathering requirements. Ask the user the following calibration questions before writing any file:
@@ -80,6 +88,7 @@ When invoked with `/skill-architect $0`, start by gathering requirements. Ask th
 5. **Invocation mode:** Should Claude auto-invoke this skill when the conversation context matches, or should it be manual-only? (maps to `disable-model-invocation: true` if manual-only)
 6. **Tools needed:** Which tools should be pre-approved without permission prompts? (maps to `allowed-tools`). Examples: `Read`, `Write`, `Bash(npm *)`, `Bash(git *)`.
 7. **Supporting files:** Does the skill need bundled references, templates, or scripts? If yes, describe their purpose.
+8. **Audience du skill :** qui l'utilisera ? (développeur / non-développeur / mixte). Pour une audience non-dev, le SKILL.md généré explique brièvement les termes techniques au premier usage (« JSON », « assertion »…) et privilégie des instructions pas-à-pas.
 
 Do not proceed to Phase 2 until the user has confirmed the answers. If a question is not applicable, the user may skip it.
 
@@ -156,3 +165,25 @@ After validation passes, present:
 - The complete directory tree (`find <skill-path> -type f`).
 - The invocation command: `/skill-name` (and automatic trigger conditions if applicable).
 - A concrete example of usage.
+
+Then move to Phase 4 — a skill that has never run on a real case is not finished.
+
+## Phase 4 — Test réel
+
+La checklist (Phase 3) prouve la conformité, pas l'utilité. Tester le skill sur des cas réels avant de le déclarer terminé.
+
+1. **Proposer 2-3 prompts de test réalistes** — ce qu'un vrai utilisateur taperait, avec des détails concrets (chemins, noms de fichiers, contexte métier), pas des requêtes abstraites. Les faire valider par l'utilisateur avant de lancer.
+2. **Lancer les runs en subagents, dans le même tour** : pour chaque prompt, un run AVEC le skill (le subagent lit le SKILL.md généré puis exécute la tâche) et un run SANS (baseline — il révèle ce que le skill apporte réellement). Sans subagents disponibles (claude.ai), dérouler soi-même le skill sur chaque prompt, séquentiellement, et sauter la baseline.
+3. **Comparer et présenter** : pour chaque prompt, montrer les résultats des deux runs, pointer les différences concrètes (qualité, respect des conventions, temps), demander le feedback de l'utilisateur.
+4. **Améliorer puis re-tester** : appliquer le feedback au SKILL.md (en respectant les Principes d'écriture — généraliser, pas de rustine overfittée sur le cas de test), relancer les mêmes prompts. Répéter jusqu'à satisfaction ou absence de progrès.
+5. **Signal de bundling** : si les runs réécrivent tous le même code ou refont la même séquence, extraire ce travail dans `scripts/`/`references/` (cf. Principes d'écriture).
+
+## Phase 5 — Optimisation de la description (optionnelle, Claude Code uniquement)
+
+La description est le mécanisme de déclenchement automatique. Pour un skill destiné à l'auto-invocation :
+
+1. Écrire 6-8 requêtes de test : moitié qui DOIVENT déclencher (formulations variées, langage casual, sans jamais nommer le skill), moitié qui ne doivent PAS déclencher — privilégier les **near-misses** (mêmes mots-clés, besoin différent) plutôt que le hors-sujet évident, qui ne teste rien.
+2. Pour chaque requête : `claude -p "<requête>"` et observer si le skill est consulté.
+3. Ajuster la description (keyword manquant, contexte à préciser), re-tester. 2-3 itérations suffisent — sélectionner sur l'ensemble des requêtes, pas sur la dernière qui échouait (anti-overfit).
+
+Note : une requête trop simple ne déclenche aucun skill (Claude la traite seul) — tester avec des demandes substantielles, multi-étapes.
