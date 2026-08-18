@@ -4,7 +4,7 @@
 
 ## What it does
 
-`skill-architect` is a Claude Code skill that creates other skills. It asks you 7 calibration questions, scaffolds the directory structure, writes a compliant `SKILL.md`, and validates the result against a 12-point checklist derived from the [official Anthropic Skills documentation](https://code.claude.com/docs/en/skills.md).
+`skill-architect` is a Claude Code skill that creates other skills. It asks you 8 calibration questions, scaffolds the directory structure, writes a compliant `SKILL.md`, validates the result against a checklist derived from the [official Anthropic Skills documentation](https://code.claude.com/docs/en/skills.md), then runs the skill on real test cases before calling it done.
 
 Every generated skill is guaranteed to:
 
@@ -25,7 +25,9 @@ cd claude-skills-expert
 ./install.sh
 ```
 
-The script copies `skill/` into `~/.claude/skills/skill-architect/`. The skill is then available in all your projects.
+The script symlinks `skill/` to `~/.claude/skills/skill-architect/`. The skill is then available in all your projects.
+
+Because it is a link and not a copy, this repo stays the single source of truth: editing the skill from either path changes the same files, and `git status` here shows what you changed. If an older copy-based install is already in place, the script migrates it, and moves it aside to `~/.claude/skill-architect.backup-<timestamp>` first when its contents differ from the repo.
 
 ## Usage
 
@@ -44,11 +46,9 @@ See [`skill/references/skills-spec-officielle.md`](skill/references/skills-spec-
 
 To iterate on the skill:
 
-```bash
-# Edit skill/SKILL.md or skill/references/*
-# Re-run the installer to propagate changes
-./install.sh
-```
+Edit `skill/SKILL.md` or `skill/references/*` directly. The symlink means changes
+are live immediately, with no reinstall step. Run `/reload-skills` in an open
+Claude Code session to pick them up without restarting.
 
 For inspiration, optionally clone the official Anthropic skills repo:
 
