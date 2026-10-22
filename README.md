@@ -4,15 +4,16 @@
 
 ## What it does
 
-`skill-architect` is a Claude Code skill that creates other skills. It asks you 8 calibration questions, scaffolds the directory structure, writes a compliant `SKILL.md`, validates the result against a checklist derived from the [official Anthropic Skills documentation](https://code.claude.com/docs/en/skills.md), then runs the skill on real test cases before calling it done.
+`skill-architect` is a Claude Code skill that creates other skills. It asks you 10 calibration questions, scaffolds the directory structure, writes a compliant `SKILL.md`, validates the result against a checklist derived from the [official Anthropic Skills documentation](https://code.claude.com/docs/en/skills.md) and the [Agent Skills standard](https://agentskills.io/specification), then runs the skill on real test cases before calling it done. By default it delivers two variants: the Claude Code skill and a zip ready to upload to claude.ai.
 
-Every generated skill is guaranteed to:
+Every generated skill is checked to:
 
-- Use only documented frontmatter fields (13 official fields as of April 2026).
-- Respect the 250-character description cap with front-loaded keywords.
+- Use only documented frontmatter fields: the 20 Claude Code fields, or the 6 fields claude.ai accepts for an upload (spec read on October 22, 2026, Claude Code 2.1.308).
+- Front-load its description and stay within the listing caps (1,536 characters in Claude Code, 1,024 for claude.ai).
 - Survive context compaction (critical rules within the first 5,000 tokens).
-- Reference supporting files via `${CLAUDE_SKILL_DIR}` instead of hardcoded paths.
-- Ignore undocumented folklore (no "V1/V2", "Tier 1/2/3", "Pushy descriptions", etc.).
+- Reference supporting files via `${CLAUDE_SKILL_DIR}` in Claude Code, and via relative paths in the claude.ai variant.
+- Use `paths` only where its conditional activation fits: a skill with `paths` stays hidden, even from `/name`, until Claude touches a matching file.
+- Ignore undocumented folklore (no "V1/V2", no "Tier 1/2/3").
 
 ## Installation
 
@@ -44,11 +45,17 @@ See [`skill/references/skills-spec-officielle.md`](skill/references/skills-spec-
 
 ## Development
 
-To iterate on the skill:
-
 Edit `skill/SKILL.md` or `skill/references/*` directly. The symlink means changes
-are live immediately, with no reinstall step. Run `/reload-skills` in an open
-Claude Code session to pick them up without restarting.
+are live immediately, with no reinstall step. Claude Code watches `~/.claude/skills/` and
+picked up edits through the symlink in a running session (observed once on 2.1.308, on
+October 22, 2026: the skill listing showed the new description); if a change does not
+show, run `/reload-skills`.
+
+`references/skills-spec-officielle.md` at the repo root is a copy of
+`skill/references/skills-spec-officielle.md`: keep both identical.
+
+To refresh the spec, re-read https://code.claude.com/docs/en/skills.md and
+https://agentskills.io/specification, then date the new reading in the spec header.
 
 For inspiration, optionally clone the official Anthropic skills repo:
 
@@ -56,7 +63,22 @@ For inspiration, optionally clone the official Anthropic skills repo:
 git clone https://github.com/anthropics/skills.git references/anthropic-skills-examples
 ```
 
-This directory is gitignored — it's only a local reference.
+This directory is gitignored. It's only a local reference.
+
+## claude.ai version
+
+claude.ai accepts only six frontmatter fields, and Claude Code variables such as
+`CLAUDE_SKILL_DIR` are not expected to work there (inferred from the docs), so the upload
+is derived from `skill/`:
+
+```bash
+python3 package-claude-ai.py
+```
+
+The script writes `dist/skill-architect.zip` (gitignored) and stops with an error if the
+derivation or the checks fail. Upload the zip in claude.ai settings, Capabilities, Skills.
+Once uploaded, the skill also syncs into Claude Code sessions signed in to the same
+account as `/anthropic-skills:skill-architect`; keep it at the same version as the local one.
 
 ## License
 

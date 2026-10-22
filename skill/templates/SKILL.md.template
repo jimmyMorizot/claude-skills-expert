@@ -1,53 +1,58 @@
 ---
 name: {{NAME}}
-# Skill identifier. Lowercase, digits, and hyphens only, max 64 characters.
-# Must match the skill directory name. If omitted, the directory name is used.
+# Lowercase letters, digits and hyphens, max 64 characters, no leading/trailing hyphen, no "--".
+# Must be identical to the skill directory name (required by the agentskills.io standard).
 
 description: {{DESCRIPTION}}
-# What the skill does and when to use it. MUST be under 250 characters.
-# Front-load the key use case with keywords users would naturally say.
+# What the skill does and when to use it. Front-load the key use case with the words users would say.
+# Claude Code truncates description + when_to_use at 1,536 characters; claude.ai accepts at most 1,024.
+# Keep it short: when the listing overflows, the least-invoked skills lose their description first.
 # Do not summarize the skill's internal workflow here.
 
 argument-hint: {{ARGUMENT_HINT}}
-# Autocomplete hint shown in the slash-command menu.
-# ⚠️ Quoter si la valeur contient des crochets : "[filename]" — sinon YAML la lit comme
-#    une liste et le skill est rejeté (« argument-hint must be a string »).
-# Examples: "[filename]", "[issue-number]", "[block-name] [category]"
-# Remove this field if the skill takes no arguments.
+# Claude Code only (refused by claude.ai). Autocomplete hint. Quote values with brackets: "[filename]",
+# or YAML reads them as a list (loads anyway on 2.1.308). Remove if the skill takes no arguments.
 
 allowed-tools: {{ALLOWED_TOOLS}}
-# Tools pre-approved for use without permission prompts when this skill is active.
-# Space-separated string or YAML list. Scope to the strict minimum.
-# This pre-approves only — it does NOT restrict available tools.
-# Remove this field if no pre-approval is needed.
+# Tools pre-approved during the turn that invokes the skill; the grant clears at the next message.
+# Pre-approves only, restricts nothing. Scope to the strict minimum. Remove if not needed.
 
-# ⚠️ NE PAS utiliser le champ `paths` : il casse le chargement du skill sur Claude Code 2.x
-# (rejet silencieux quelle que soit la valeur — noms exacts, *.glob, ** ...). Pour cibler des
-# fichiers, mettre les mots-clés de déclenchement dans `description` et compter sur
-# l'auto-invocation par contexte. Les clés inventées (globs, etc.) sont ignorées, inutiles.
+# Optional Claude Code fields: uncomment only if needed. None of them is accepted by claude.ai.
+# when_to_use: ...                 # Extra trigger phrases or example requests, appended to description.
+# arguments: issue branch          # Named positions: $issue = first argument, $branch = second.
+# disallowed-tools: AskUserQuestion  # Tools removed while the skill is active (clears at next message).
+# disable-model-invocation: true   # Manual only (/name). Use for side effects: deploy, send, commit.
+# user-invocable: false            # Hidden from the / menu; only Claude invokes it.
+# model: inherit                   # Model for the current turn only; same values as /model, or inherit.
+# effort: high                     # low | medium | high | xhigh | max; available levels depend on the model.
+# context: fork                    # Run in an isolated subagent (no conversation history).
+# agent: Explore                   # Subagent type with context: fork (default: general-purpose).
+# background: false                # With context: fork, wait for the result in the same turn.
+# hooks: ...                       # Hooks registered at invocation, active until the session ends.
+# shell: bash                      # bash (default) | powershell, for injected commands (spec section 10).
+# paths: "*.twig"                  # Conditional activation: the skill stays invisible, even for /name,
+#                                  # until Claude reads or edits a matching file. Only for file-bound
+#                                  # knowledge skills; never for a skill called by /name at session start.
 
-# Advanced optional fields — uncomment only if needed:
-# disable-model-invocation: true   # Prevent auto-invocation; user must call /skill-name manually.
-# user-invocable: false            # Hide from / menu; Claude can still auto-invoke it.
-# model: claude-opus-4-6          # Override the model used when this skill is active.
-# effort: high                    # Effort level: low | medium | high | max (max = Opus 4.6 only).
-# context: fork                   # Execute in a forked subagent instead of inline.
-# agent: Explore                  # Subagent type when context: fork (e.g. Explore, general-purpose).
-# hooks: ...                      # Lifecycle hooks scoped to this skill's session.
-# shell: bash                     # Shell for injection blocks: bash (default) | powershell.
+# Optional fields accepted by both Claude Code and claude.ai (agentskills.io standard):
+# license: MIT
+# compatibility: Requires Python 3 and git   # max 500 characters
+# metadata:
+#   version: "1.0"                 # string values only, quote numbers
 ---
 
 # {{NAME}}
 
 <!-- ============================================================ -->
-<!-- COMPACTION ZONE: The first 5,000 tokens survive compaction.   -->
-<!-- Place critical rules and constraints here.                    -->
+<!-- COMPACTION ZONE: only the first 5,000 tokens survive          -->
+<!-- compaction. Put critical rules and constraints here.          -->
+<!-- Keep the whole file under 500 lines.                          -->
 <!-- ============================================================ -->
 
 ## Core rules
 
-<!-- Standing instructions that persist throughout the entire session.      -->
-<!-- These are NOT one-shot steps — they remain in effect until session end. -->
+<!-- Standing instructions that persist for the whole session.           -->
+<!-- Claude Code never re-reads this file after invocation.             -->
 
 - ...
 - ...
@@ -61,9 +66,15 @@ allowed-tools: {{ALLOWED_TOOLS}}
 
 ## Execution
 
-<!-- Main workflow. Reference bundled files with ${CLAUDE_SKILL_DIR}:         -->
-<!-- Example: Read `${CLAUDE_SKILL_DIR}/references/conventions.md` for...     -->
-<!-- Use variable substitutions: $0, $1, $ARGUMENTS, ${CLAUDE_SESSION_ID}     -->
+<!-- Main workflow. Claude Code: reference bundled files with the CLAUDE_SKILL_DIR      -->
+<!-- prefix (syntax: spec section 5). Example: read the conventions file in references/ -->
+<!-- before ...                                                                          -->
+<!-- Substitutions (arguments, session ID, effort level, project root): spec section 5. -->
+<!-- Live data: command injection, spec section 10 (append || true if it may exit 1).    -->
+<!-- Never write an injection or a placeholder as an example: Claude Code runs or       -->
+<!-- substitutes it even inside backticks or an HTML comment like this one.             -->
+<!-- claude.ai variant: relative paths (references/conventions.md), no injection,        -->
+<!-- no substitutions.                                                                   -->
 
 1. ...
 2. ...
@@ -77,8 +88,8 @@ allowed-tools: {{ALLOWED_TOOLS}}
 
 ## Standing constraints
 
-<!-- Persistent rules enforced throughout the task. -->
-<!-- Examples: naming conventions, forbidden patterns, style rules. -->
+<!-- Persistent rules enforced throughout the task.                 -->
+<!-- A rule that must hold every time belongs in a hook, not here.  -->
 
 - Never ...
 - Always ...

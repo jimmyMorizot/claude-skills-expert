@@ -6,3 +6,6 @@ references/anthropic-skills-examples/
 *.swp
 .vscode/
 .idea/
+
+# claude.ai upload built by package-claude-ai.py
+dist/
