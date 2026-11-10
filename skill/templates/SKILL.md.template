@@ -1,23 +1,18 @@
 ---
+# Comment lines guide the author: remove them from the generated skill.
 name: {{NAME}}
 # Lowercase letters, digits and hyphens, max 64 characters, no leading/trailing hyphen, no "--".
 # Must be identical to the skill directory name (required by the agentskills.io standard).
-
+# For a claude.ai upload, the name cannot contain "anthropic" or "claude".
 description: {{DESCRIPTION}}
 # What the skill does and when to use it. Front-load the key use case with the words users would say.
 # Claude Code truncates description + when_to_use at 1,536 characters; claude.ai accepts at most 1,024.
 # Keep it short: when the listing overflows, the least-invoked skills lose their description first.
-# Do not summarize the skill's internal workflow here.
-
-argument-hint: {{ARGUMENT_HINT}}
-# Claude Code only (refused by claude.ai). Autocomplete hint. Quote values with brackets: "[filename]",
-# or YAML reads them as a list (loads anyway on 2.1.308). Remove if the skill takes no arguments.
-
-allowed-tools: {{ALLOWED_TOOLS}}
-# Tools pre-approved during the turn that invokes the skill; the grant clears at the next message.
-# Pre-approves only, restricts nothing. Scope to the strict minimum. Remove if not needed.
+# Do not summarize the skill's internal workflow here. No angle brackets: write [branch], not <branch>.
+# Third person: no "I" or "you".
 
 # Optional Claude Code fields: uncomment only if needed. None of them is accepted by claude.ai.
+# argument-hint: "[filename]"      # Autocomplete hint. Quote values with brackets, or YAML reads a list.
 # when_to_use: ...                 # Extra trigger phrases or example requests, appended to description.
 # arguments: issue branch          # Named positions: $issue = first argument, $branch = second.
 # disallowed-tools: AskUserQuestion  # Tools removed while the skill is active (clears at next message).
@@ -29,12 +24,16 @@ allowed-tools: {{ALLOWED_TOOLS}}
 # agent: Explore                   # Subagent type with context: fork (default: general-purpose).
 # background: false                # With context: fork, wait for the result in the same turn.
 # hooks: ...                       # Hooks registered at invocation, active until the session ends.
-# shell: bash                      # bash (default) | powershell, for injected commands (spec section 10).
+# shell: powershell                # Run injected commands with the PowerShell tool, when it is enabled
+#                                  # (spec sections 4.2 and 10). bash is the default: do not write it.
 # paths: "*.twig"                  # Conditional activation: the skill stays invisible, even for /name,
 #                                  # until Claude reads or edits a matching file. Only for file-bound
 #                                  # knowledge skills; never for a skill called by /name at session start.
 
 # Optional fields accepted by both Claude Code and claude.ai (agentskills.io standard):
+# allowed-tools: Read Bash(npm *)  # Tools pre-approved during the turn that invokes the skill; the grant
+#                                  # clears at the next message. Pre-approves only, restricts nothing.
+#                                  # Scope to the strict minimum.
 # license: MIT
 # compatibility: Requires Python 3 and git   # max 500 characters
 # metadata:
@@ -42,6 +41,9 @@ allowed-tools: {{ALLOWED_TOOLS}}
 ---
 
 # {{NAME}}
+
+<!-- AUTHOR NOTES: delete every HTML comment from the generated skill. Claude Code sends -->
+<!-- them to the model with the rest of the body (checked on 2.1.322, 10/11/2026).       -->
 
 <!-- ============================================================ -->
 <!-- COMPACTION ZONE: only the first 5,000 tokens survive          -->
@@ -51,11 +53,14 @@ allowed-tools: {{ALLOWED_TOOLS}}
 
 ## Core rules
 
-<!-- Standing instructions that persist for the whole session.           -->
-<!-- Claude Code never re-reads this file after invocation.             -->
+<!-- Standing instructions that persist for the whole session: critical rules and the  -->
+<!-- constraints that hold throughout the task. They sit at the top because Claude     -->
+<!-- Code never re-reads this file after invocation and keeps only its beginning       -->
+<!-- after compaction. A rule that must hold every time belongs in a hook, not here.   -->
 
 - ...
-- ...
+- Never ...
+- Always ...
 
 ## Before starting
 
@@ -85,11 +90,3 @@ allowed-tools: {{ALLOWED_TOOLS}}
 
 1. ...
 2. ...
-
-## Standing constraints
-
-<!-- Persistent rules enforced throughout the task.                 -->
-<!-- A rule that must hold every time belongs in a hook, not here.  -->
-
-- Never ...
-- Always ...

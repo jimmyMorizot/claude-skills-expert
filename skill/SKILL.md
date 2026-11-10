@@ -1,20 +1,18 @@
 ---
 name: skill-architect
 description: Create, scaffold, test and improve Claude Code and claude.ai skills with a spec-compliant SKILL.md and frontmatter. Use when building a new skill, writing or auditing a SKILL.md, packaging a skill zip for claude.ai, testing or optimizing a skill's triggering, or checking conformance with the official Anthropic spec.
+# Note d'auteur, en commentaire YAML pour rester hors du contenu envoyé au modèle.
+# Description : 317 caractères. Limites : 1 536 dans Claude Code (description + when_to_use),
+# 1 024 pour le zip claude.ai. Rester court reste utile : quand le listing déborde, les skills
+# les moins invoqués perdent leur description en premier. Mots-clés à garder : spec-compliant,
+# SKILL.md, frontmatter, claude.ai, zip, testing, triggering, Anthropic spec.
 argument-hint: "[skill-name]"
 allowed-tools: Read Write Bash(mkdir *) Bash(ls *) Bash(find *) Bash(cp *)
 ---
 
-<!--
-Description : 317 caractères. Limites : 1 536 dans Claude Code (description + when_to_use),
-1 024 pour le zip claude.ai. Rester court reste utile : quand le listing déborde, les skills
-les moins invoqués perdent leur description en premier. Mots-clés à garder : spec-compliant,
-SKILL.md, frontmatter, claude.ai, zip, testing, triggering, Anthropic spec.
--->
-
 # Skill Architect
 
-**CRITICAL, read before any action:** before creating, modifying or auditing any skill, read the official specification at `${CLAUDE_SKILL_DIR}/references/skills-spec-officielle.md` (relevée le 22/10/2026 sur Claude Code 2.1.308). It is the single source of truth for frontmatter fields, substitutions, lifecycle, placement and claude.ai limits. Never rely on pre-trained knowledge about skills: the platform changes every few weeks. If the user's Claude Code is much newer than 2.1.308, say that the spec may be out of date and offer to re-read https://code.claude.com/docs/en/skills.md.
+**CRITICAL, read before any action:** before creating, modifying or auditing any skill, read the official specification at `${CLAUDE_SKILL_DIR}/references/skills-spec-officielle.md` (relevée le 10/11/2026 sur Claude Code 2.1.322). It is the single source of truth for frontmatter fields, substitutions, lifecycle, placement and claude.ai limits. Never rely on pre-trained knowledge about skills: the platform changes every few weeks. If the user's Claude Code is much newer than 2.1.322, say that the spec may be out of date and offer to re-read https://code.claude.com/docs/en/skills.md.
 
 **Anti-folklore rule:** never use these terms in a generated skill, they do not exist in the sources:
 - "Tier 1", "Tier 2", "Tier 3" (the real mechanism is called progressive disclosure)
@@ -26,6 +24,20 @@ SKILL.md, frontmatter, claude.ai, zip, testing, triggering, Anthropic spec.
 
 **Cas particulier « pushy »** : hors spec, mais le skill-creator natif d'Anthropic recommande des descriptions « un peu pushy » contre le sous-déclenchement. Choix assumé ici : description **sobre, mots-clés en tête**. Une description gonflée pousse l'agent à suivre la description au lieu de lire le corps du skill. Si l'utilisateur cite le natif, expliquer ce choix (un arbitrage différent, pas du folklore) ; la Phase 5 traite le sous-déclenchement par le test, pas par l'inflation.
 
+## Aiguillage : identifier la demande avant d'agir
+
+Ce skill sert à cinq demandes. Identifier laquelle avant toute question. Si un argument a été passé, Claude Code l'ajoute en dernière ligne de ce contenu (« ARGUMENTS: … ») ; c'est un nom de skill ou une demande libre.
+
+| Demande | Parcours |
+|---|---|
+| Créer un skill | Phases 1 à 4, Phase 5 si le skill vise l'auto-invocation, puis Livraison |
+| Auditer ou relire un skill existant | Lire tout son dossier (SKILL.md et fichiers supports), puis rendre la checklist de la Phase 3 point par point, avec preuves. Lecture seule, aucune modification sans accord. Proposer ensuite la Phase 4 |
+| Améliorer ou corriger un skill existant | Lire d'abord tout son dossier. Ne poser de la Phase 1 que les questions dont la réponse n'est ni dans le skill ni dans la conversation. Modifier (Phase 2), puis Phases 3 et 4. Si le skill a une variante claude.ai, la redériver (Phase 2.4) |
+| Empaqueter pour claude.ai | Phase 2.4, puis points 3, 4 et 13 de la checklist |
+| Tester ou optimiser le déclenchement | Phase 5, et Phase 4 pour la qualité du résultat |
+
+Un nom de skill seul en argument vaut demande de création si aucun skill de ce nom n'existe. Sinon, demander s'il s'agit d'un audit ou d'une amélioration.
+
 ## Standing rules for all skill creation
 
 Ces règles valent pour toute la session, pour chaque skill généré :
@@ -33,16 +45,16 @@ Ces règles valent pour toute la session, pour chaque skill généré :
 - `---` en **première ligne** du SKILL.md, YAML valide. Un YAML invalide charge le skill sans aucun champ : `/nom` marche, l'auto-invocation non.
 - **Champs Claude Code** : uniquement les 20 de la spec (section 4.2) : `name`, `description`, `when_to_use`, `argument-hint`, `arguments`, `disable-model-invocation`, `user-invocable`, `allowed-tools`, `disallowed-tools`, `model`, `effort`, `context`, `agent`, `background`, `hooks`, `paths`, `shell`, `metadata`, `license`, `compatibility`. Un nom mal orthographié est ignoré **sans erreur** : vérifier chaque nom contre la spec.
 - **Champs claude.ai, Skills API, `package_skill.py`** : seulement `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools`. Tout autre champ fait échouer le téléversement (« Unexpected key(s) »).
-- **Description** : cas d'usage clé et mots que l'utilisateur dirait, en premier. `description` + `when_to_use` tronqués à 1 536 caractères dans Claude Code ; `description` limitée à 1 024 pour claude.ai. Ne pas y résumer le déroulé interne du skill.
-- **Nom** : minuscules, chiffres, tirets, 64 caractères max, pas de tiret au début ni à la fin, pas de `--`, `name` identique au nom du dossier. Noms interdits : `synced`, `anthropic-skills`.
-- Corps écrit en **consignes permanentes** : le fichier entre une fois dans la conversation et n'est jamais relu.
+- **Description** : cas d'usage clé et mots que l'utilisateur dirait, en premier. `description` + `when_to_use` tronqués à 1 536 caractères dans Claude Code ; `description` limitée à 1 024 pour claude.ai. Ne pas y résumer le déroulé interne du skill. Pas de chevrons : Claude Code les affiche en entités HTML (spec section 4.2), écrire `[branche]`.
+- **Nom** : minuscules, chiffres, tirets, 64 caractères max, pas de tiret au début ni à la fin, pas de `--`, `name` identique au nom du dossier. Noms interdits : `synced`, `anthropic-skills`. Pour claude.ai, ni `anthropic` ni `claude` dans le nom (spec section 4.3).
+- Corps écrit en **consignes permanentes** : le fichier entre une fois dans la conversation et n'est jamais relu. Pas de note d'auteur en commentaire HTML, elle part au modèle à chaque invocation (spec section 7).
 - Règles critiques dans les **5 000 premiers tokens** (seule partie conservée après compaction) ; corps sous 500 lignes, le détail dans `references/`.
 - Fichiers supports : préfixe `CLAUDE_SKILL_DIR` pour Claude Code (syntaxe exacte en spec section 5), chemins relatifs pour claude.ai. Jamais de chemin absolu en dur.
-- **Ne jamais écrire dans le corps d'un SKILL.md une injection ou une variable à titre d'exemple.** Claude Code les traite partout, même entre backticks ou dans un commentaire HTML (vérifié le 22/10/2026 sur 2.1.308) : un point d'exclamation suivi d'une commande entre backticks lance la commande, et un refus de permission annule toute l'invocation ; une variable `CLAUDE_*` écrite avec sa syntaxe complète est remplacée par sa valeur, sans échappement possible ; un placeholder d'argument (dollar suivi d'un chiffre ou de ARGUMENTS) est remplacé aussi, sauf s'il est précédé d'une barre oblique inverse. Pour en parler, nommer la chose sans sa syntaxe et renvoyer à la spec (sections 5 et 10).
+- **Ne jamais écrire dans le corps d'un SKILL.md une injection ou une variable à titre d'exemple.** Claude Code les traite partout, même entre backticks ou dans un commentaire HTML (vérifié le 10/11/2026 sur 2.1.322) : un point d'exclamation suivi d'une commande entre backticks lance la commande, et un refus de permission annule toute l'invocation (doc) ; une variable `CLAUDE_*` écrite avec sa syntaxe complète est remplacée par sa valeur, sans échappement possible ; un placeholder d'argument (dollar suivi d'un chiffre ou de ARGUMENTS) est remplacé aussi, sauf s'il est précédé d'une barre oblique inverse. Pour en parler, nommer la chose sans sa syntaxe et renvoyer à la spec (sections 5 et 10).
 - `allowed-tools` **pré-approuve** pour le seul tour d'invocation (l'autorisation tombe au message suivant) ; il ne restreint rien. Pour retirer des outils : `disallowed-tools`. Le limiter au strict nécessaire.
 - N'inclure que les champs utiles au skill ; omettre ceux qui prendraient leur valeur par défaut.
 
-### `paths` : activation conditionnelle (vérifié le 22/10/2026, Claude Code 2.1.308)
+### `paths` : activation conditionnelle (vérifié le 10/11/2026, Claude Code 2.1.322)
 
 Un skill qui déclare `paths` est **absent au démarrage, y compris pour `/nom`** : il n'apparaît qu'après que Claude a lu ou modifié, dans la session, un fichier qui correspond aux motifs (relatifs au dossier courant). Ensuite Claude peut l'invoquer normalement. Constaté en `claude -p` avec des canaris (spec, section 12) ; le menu `/` interactif et un `/nom` tapé après activation n'ont pas été testés.
 
@@ -107,14 +119,14 @@ La variante Claude Code est la source ; la variante claude.ai se dérive (Phase 
 
 ## Phase 1 : Before creation
 
-When invoked with `/skill-architect $0`, start by gathering requirements. Ask these calibration questions before writing any file:
+For a creation request (see Aiguillage), start by gathering requirements. Ask these calibration questions before writing any file:
 
-1. **Nom** : confirmer `$0`. Valider les règles de nom (Standing rules) ; proposer une correction sinon.
+1. **Nom** : reprendre le nom passé en argument s'il y en a un, sinon le demander. Valider les règles de nom (Standing rules) ; proposer une correction sinon.
 2. **But** : que doit permettre le skill ? Demander une description concrète du comportement ou du workflow attendu.
 3. **Emplacement** :
-   - personnel : `~/.claude/skills/$0/` (tous les projets de la machine, pas Cowork ni le cloud) ;
-   - projet : `.claude/skills/$0/` (ce dépôt, partagé par commit) ;
-   - plugin : `<plugin>/skills/$0/` (là où le plugin est activé).
+   - personnel : `~/.claude/skills/<nom>/` (tous les projets de la machine, pas Cowork ni le cloud) ;
+   - projet : `.claude/skills/<nom>/` (ce dépôt, partagé par commit) ;
+   - plugin : `<plugin>/skills/<nom>/` (là où le plugin est activé).
 4. **Fichiers cibles** : le skill doit-il s'activer sur certains types de fichiers ? Par défaut, mettre ces mots-clés dans `description`. Proposer `paths` seulement pour un skill de connaissance liée à des fichiers, en prévenant qu'il restera invisible, même pour `/nom`, tant qu'aucun fichier correspondant n'est ouvert.
 5. **Mode d'invocation** : automatique, ou manuel seulement (`disable-model-invocation: true`, à conseiller pour tout effet de bord : envoi, déploiement, commit) ? Ou seulement par Claude (`user-invocable: false`) ?
 6. **Outils** : lesquels pré-approuver (`allowed-tools`, ex. `Read`, `Bash(npm *)`) ? Lesquels retirer (`disallowed-tools`) ?
@@ -130,7 +142,7 @@ Do not proceed to Phase 2 until the user has confirmed the answers. A question t
 ### 2.1 Scaffold the directory
 
 ```bash
-mkdir -p <scope-path>/$0
+mkdir -p <scope-path>/<nom>
 ```
 
 Add subdirectories only if the user confirmed supporting files: `references/` (documentation à consulter), `templates/` (formes à remplir), `scripts/` (code exécuté), `examples/` (fixtures et sorties de référence).
@@ -142,7 +154,7 @@ Read `${CLAUDE_SKILL_DIR}/templates/SKILL.md.template` for the structural skelet
 **Frontmatter :**
 - Toujours `name` (identique au dossier) et `description`.
 - `when_to_use` pour des phrases de déclenchement ou exemples de demandes, s'ils alourdiraient la description (Claude Code seulement ; pour claude.ai, les fondre dans `description`).
-- `argument-hint` si le skill prend des arguments ; **quoter** une valeur avec crochets (`"[filename]"`), sinon YAML lit une liste (le skill se charge et s'exécute quand même sur 2.1.308, spec section 4.2 ; quoter reste la forme correcte). Claude Code seulement. `arguments` pour nommer les positions (un nom au lieu d'un index, spec section 5).
+- `argument-hint` si le skill prend des arguments ; **quoter** une valeur avec crochets (`"[filename]"`), sinon YAML lit une liste (le skill se charge et s'exécute quand même sur 2.1.322, spec section 4.2 ; quoter reste la forme correcte). Claude Code seulement. `arguments` pour nommer les positions (un nom au lieu d'un index, spec section 5).
 - `allowed-tools` seulement si des outils doivent être pré-approuvés ; `disallowed-tools` pour une boucle autonome qui ne doit jamais appeler un outil (ex. `AskUserQuestion`).
 - `disable-model-invocation: true` si invocation manuelle voulue.
 - `model` et `effort` seulement si le skill l'exige vraiment ; `model` ne vaut que pour le tour courant, `inherit` garde le modèle actif, les niveaux d'effort dépendent du modèle.
@@ -152,7 +164,7 @@ Read `${CLAUDE_SKILL_DIR}/templates/SKILL.md.template` for the structural skelet
 - Vérifier chaque champ contre la spec avant de l'écrire.
 
 **Description :**
-- Mots-clés que dirait l'utilisateur, en premier ; capacités et conditions de déclenchement, pas le déroulé interne.
+- Mots-clés que dirait l'utilisateur, en premier ; capacités et conditions de déclenchement, pas le déroulé interne ; à la troisième personne, ni « je » ni « vous » (best-practices, spec section 4.3).
 - Viser court (quelques centaines de caractères) ; ne jamais dépasser 1 024 si une variante claude.ai est prévue.
 
 **Corps :**
@@ -185,17 +197,22 @@ t = sys.stdin.read().replace(chr(13), '')
 if not t.startswith('---' + chr(10)): sys.exit('SKILL.md absent du zip, ou sans --- en ligne 1')
 fin = t.find(chr(10) + '---', 3)
 if fin < 0: sys.exit('frontmatter sans --- de fermeture')
-cles = re.findall(r'^([^ #][^:]*):', t[4:fin], re.M)
+cles = [c.strip() for c in re.findall(r'^([^\s#-][^:\n]*):', t[4:fin], re.M)]
+manque = [c for c in ('name', 'description') if c not in cles]
 refus = [c for c in cles if c not in ('name', 'description', 'license', 'compatibility', 'metadata', 'allowed-tools')]
-print('CHAMPS REFUSES PAR CLAUDE.AI : ' + ', '.join(refus) if refus else 'OK')"
+pb = []
+if manque: pb.append('CHAMPS REQUIS ABSENTS (attendus en début de ligne, sans guillemets) : ' + ', '.join(manque))
+if refus: pb.append('CHAMPS REFUSES PAR CLAUDE.AI : ' + ', '.join(refus))
+if pb: sys.exit(' ; '.join(pb))
+print('OK')"
 ```
-La seconde commande doit afficher `OK`. `grep -r 'CLAUDE_SKILL_DIR'` dans le dossier dérivé ne doit plus montrer que des mentions pédagogiques, aucune commande exécutable.
+La seconde commande doit afficher `OK` et sortir en code 0 ; un champ requis absent ou un champ refusé la fait sortir en code 1. `OK` ne dit rien de la validité du YAML ni de la longueur de la description, vérifiées aux points 3 et 4 de la checklist. `grep -r 'CLAUDE_SKILL_DIR'` dans le dossier dérivé ne doit plus montrer que des mentions pédagogiques, aucune commande exécutable.
 
 ## Phase 3 : After creation
 
 Validate the generated skill against the full checklist. Present each point with a pass/fail verdict and a short justification.
 
-### Validation checklist (16 points)
+### Validation checklist (15 points)
 
 1. **Nom** : règles de nom respectées, `name` identique au dossier.
 2. **SKILL.md** : à la racine du dossier, `---` en première ligne.
@@ -204,7 +221,7 @@ Validate the generated skill against the full checklist. Present each point with
 5. **Mode manuel** : `disable-model-invocation: true` si et seulement si l'utilisateur l'a demandé.
 6. **`paths`** : absent, ou justifié (skill de connaissance liée à des fichiers, jamais appelé par `/nom` en début de session) et l'utilisateur prévenu de l'invisibilité initiale. FAIL sinon.
 7. **Outils** : `allowed-tools` au strict nécessaire ; commandes injectées pré-approuvées.
-8. **Consignes permanentes** : pas d'étapes ponctuelles devenues inutiles après exécution.
+8. **Consignes permanentes** : pas d'étapes ponctuelles devenues inutiles après exécution ; aucune note d'auteur en commentaire HTML dans le corps.
 9. **Placement** : règles critiques dans les 5 000 premiers tokens ; corps sous 500 lignes.
 10. **Fichiers supports référencés** : chacun cité depuis le SKILL.md via le préfixe `CLAUDE_SKILL_DIR`.
 11. **Injection sûre** : chaque commande injectée qui peut sortir en 1 se termine par `|| true` ; aucune injection ni variable écrite à titre d'exemple dans le corps.
@@ -212,9 +229,8 @@ Validate the generated skill against the full checklist. Present each point with
 13. **Variante claude.ai** : si visée : 6 champs au plus, aucune référence opérationnelle `CLAUDE_SKILL_DIR`, aucune injection, zip contrôlé (Phase 2.4, étape 6).
 14. **Invocation** : inviter l'utilisateur à tester `/nom`.
 15. **Découvrabilité** : inviter l'utilisateur à vérifier que le skill figure dans « What skills are available? » (ou dans `/skills`).
-16. **Test exécuté, pas promis** : Phase 4 faite AVANT livraison, résultats montrés.
 
-If any point fails, fix the SKILL.md immediately and re-validate.
+If any point fails, fix the SKILL.md immediately and re-validate. In an audit, report the failed points instead: nothing is modified without the user's agreement.
 
 ## Phase 4 : Test réel (obligatoire)
 
@@ -251,9 +267,9 @@ La description est le mécanisme de déclenchement automatique. Pour un skill de
 
 Une requête trop simple ne déclenche aucun skill, Claude la traite seul (constat du skill-creator officiel) : tester avec des demandes substantielles, en plusieurs étapes.
 
-### Output to user
+## Livraison
 
-After validation and tests, present:
+Un skill créé ou modifié n'est pas livré sans la Phase 4 : test exécuté, pas promis, résultats montrés. After validation and tests, present:
 - l'arborescence complète (`find <skill-path> -type f`) ;
 - la commande d'invocation `/nom` et les conditions de déclenchement automatique ;
 - un exemple d'usage concret ;

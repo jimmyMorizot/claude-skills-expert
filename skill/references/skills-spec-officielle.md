@@ -1,10 +1,13 @@
 # Claude Code Skills : référence technique officielle
 
-> **Source primaire** : https://code.claude.com/docs/en/skills.md (relevée le 22 octobre 2026, Claude Code 2.1.308)
-> **Standard ouvert** : https://agentskills.io/specification (relevé le 22 octobre 2026)
+> **Source primaire** : https://code.claude.com/docs/en/skills.md (relevée le 10 novembre 2026, Claude Code 2.1.322)
+> **Standard ouvert** : https://agentskills.io/specification (relevé le 10 novembre 2026)
+> **Bonnes pratiques** : https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices (relevées le 10 novembre 2026)
 > **Repo de référence** : https://github.com/anthropics/skills
 > **Audience** : agent Claude Code expert en création de skills
-> **Statut** : document normatif. Chaque affirmation vient de l'une des deux sources ci-dessus, sauf les passages marqués **Vérifié en local** (test daté, version notée), **Déduction**, **skill-creator** (plugin officiel `skill-creator`, hors des deux sources) ou **Recommandation maison**.
+> **Statut** : document normatif. Chaque affirmation vient de l'une des deux premières sources, sauf les passages marqués **Vérifié en local** (test daté, version notée), **Déduction**, **best-practices** (troisième source ci-dessus), **skill-creator** (plugin officiel `skill-creator`, hors de ces sources) ou **Recommandation maison**.
+
+**Sommaire** : 0. Anti-folklore · 1. Définition · 2. Emplacements, précédence, synchronisation · 3. Structure d'un répertoire · 4. Frontmatter (4.2 les 20 champs, 4.3 hors de Claude Code, 4.4 nom de commande) · 5. Substitutions de variables · 6. Qui invoque le skill · 7. Cycle de vie et compaction · 8. Budget du listing · 9. Outils et permissions · 10. Injection de contexte dynamique · 11. Subagent (`context: fork`) · 12. Champ `paths` · 13. Visibilité et skills inutiles · 14. Évaluer un skill · 15. Dépannage · 16. Exemple complet · 17. Anti-patterns · 18. Checklist · 19. Ressources
 
 ---
 
@@ -20,7 +23,8 @@ Des contenus non sourcés (LinkedIn, YouTube, synthèses générées) circulent 
 | « Le SKILL.md doit faire moins de 5 000 tokens » | Recommandation, pas limite : agentskills.io recommande un corps sous 5 000 tokens, et les deux sources recommandent moins de 500 lignes. Contrainte réelle distincte : après compaction, Claude Code ne conserve que les 5 000 premiers tokens de chaque skill invoqué (budget combiné 25 000). |
 | « Description pushy = 90 % d'activation » | Chiffres inventés. Conseil officiel : mettre le cas d'usage clé en premier, inclure les mots que l'utilisateur dirait naturellement. |
 | « Les custom commands sont obsolètes » | Faux. Elles ont **fusionné** dans les skills : `.claude/commands/deploy.md` et `.claude/skills/deploy/SKILL.md` créent tous deux `/deploy`. |
-| « Le champ `paths` casse le chargement » | Faux sur 2.1.308. `paths` est une **activation conditionnelle** : le skill reste invisible tant que Claude n'a pas lu ou modifié un fichier correspondant (section 12). |
+| « Le champ `paths` casse le chargement » | Faux sur 2.1.308 comme sur 2.1.322. `paths` est une **activation conditionnelle** : le skill reste invisible tant que Claude n'a pas lu ou modifié un fichier correspondant (section 12). |
+| « Objectif Suprême », « Architecture indentée chronologique » | Termes absents des trois sources (recherche du 10 novembre 2026). Décrire un skill avec le vocabulaire des sources : frontmatter, corps, fichiers supports, *progressive disclosure*. |
 
 ---
 
@@ -34,7 +38,7 @@ Un skill est un répertoire contenant un `SKILL.md` : un frontmatter YAML entre 
 
 **Skills intégrés (bundled)** : `/doctor`, `/code-review`, `/batch`, `/debug`, `/loop`, `/claude-api`, `/run`, `/verify`, `/run-skill-generator`… Un skill à vous du même nom remplace la commande intégrée, mais pas ses alias. Désactivation globale : `disableBundledSkills`.
 
-**Skill nommé `verify` ou `simplify`** (v2.1.286+) : s'il est présent au démarrage (emplacement enterprise, personnel, projet ou répertoire additionnel) et invocable par Claude, les instructions de commit demandent à Claude de l'exécuter juste avant chaque commit (sauf changements de docs ou de tests). Les skills de plugin et ceux synchronisés depuis claude.ai ne comptent pas.
+**Skill nommé `verify` ou `simplify`** (v2.1.286+) : s'il est présent au démarrage (emplacement enterprise, personnel, projet, répertoire additionnel, ou fichier `.claude/commands/` de ce nom) et invocable par Claude, les instructions de commit demandent à Claude de l'exécuter juste avant chaque commit (sauf changements de docs ou de tests). Les `/verify` et `/simplify` intégrés, les skills de plugin et ceux synchronisés depuis claude.ai ne comptent pas.
 
 ---
 
@@ -66,6 +70,7 @@ Règles des dossiers :
 - Les skills d'un sous-dossier ne se chargent pas au démarrage : seulement quand Claude lit ou modifie un fichier de ce sous-dossier, puis pour toute la session. Avant cela, ils sont absents du menu `/`. `/add-dir <chemin>` (v2.1.257+) les charge plus tôt.
 - Deux skills imbriqués de même nom restent disponibles : `/deploy` lance celui de la racine, `/apps/web:deploy` celui du sous-dossier.
 - `--add-dir` charge `.claude/skills/`, `.claude/commands/` et `.claude/agents/` du dossier ajouté. `permissions.additionalDirectories` ne donne qu'un accès fichiers et ne charge rien.
+- Skill d'un dossier ajouté qui porte le nom d'un skill enterprise, personnel, projet ou d'un dossier ajouté avant lui (v2.1.309+) : il reçoit un préfixe, `/<dossier>:<skill>`. Avec `--add-dir ../cli` et un `verify` dans le projet et dans `../cli`, `/verify` lance celui du projet et `/cli:verify` celui de `../cli`. Si deux dossiers ajoutés portent le même nom, le préfixe commence par le nom du dossier parent (`/b/cli:verify`).
 
 ### 2.3 Précédence quand deux skills portent le même nom
 
@@ -76,13 +81,15 @@ Règles des dossiers :
 | Un de ces emplacements et une commande intégrée | En terminal local, le vôtre remplace la commande, pas ses alias |
 | Un skill et un fichier `.claude/commands/` | Le skill |
 | Skill racine et skill imbriqué | Les deux |
+| Enterprise, personnel ou projet, et un dossier ajouté hors projet | Celui d'enterprise, personnel ou projet ; l'autre répond sous un nom préfixé (section 2.2) |
+| Deux dossiers ajoutés hors projet | Celui du dossier ajouté en premier ; l'autre répond sous un nom préfixé |
 | Skill de plugin et skill d'un autre emplacement | Les deux (namespace `/plugin:nom`) |
 | N'importe lequel et le nom court d'un skill synchronisé claude.ai | L'autre ; le synchronisé ne répond plus qu'à `/anthropic-skills:nom` |
 
 ### 2.4 Skills synchronisés depuis claude.ai
 
 - En terminal connecté avec un compte claude.ai (v2.1.273+), Claude Code télécharge les skills activés sur le compte dans `~/.claude/skills/synced/`, puis vérifie les changements (environ toutes les 10 minutes en activité, 40 minutes au repos) et les applique sans redémarrage.
-- Pas de synchronisation avec une clé API, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`, Bedrock, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, le mode bare, `--safe-mode`. En `-p`, `CLAUDE_CODE_SYNC_SKILLS=1` force l'attente du téléchargement.
+- Pas de synchronisation avec une clé API, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`, un script `apiKeyHelper`, Bedrock, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, le mode bare, `--safe-mode`, des managed settings qui réservent les skills aux plugins, ou un `--setting-sources` sans `user`. En `-p`, `CLAUDE_CODE_SYNC_SKILLS=1` force l'attente du téléchargement.
 - **Téléchargement seul, jamais d'envoi** : modifier un fichier sous `synced/` ne change rien sur claude.ai et sera écrasé. Pour modifier un skill synchronisé, le modifier sur claude.ai.
 - **Nom de commande** : `/nom` ou `/anthropic-skills:nom`. Si un skill local porte déjà le nom court, `/nom` lance le local et le synchronisé ne répond qu'au nom complet. La comparaison ignore casse, espaces, caractères invisibles et variantes de tirets.
 - **Frontmatter d'un skill synchronisé** : s'applique partout ; `allowed-tools` passe par le flux de permissions normal. La description est assainie (caractères de contrôle retirés, chevrons échappés).
@@ -95,8 +102,8 @@ Cowork et les sessions cloud (dont les routines cloud) ne lisent pas `~/.claude/
 
 ### 2.6 Édition à chaud, suppression
 
-- Claude Code surveille `~/.claude/skills/`, `.claude/skills/` du projet et ceux des dossiers `--add-dir` : ajout, modification ou suppression pris en compte sans redémarrage (sauf mode bare). Un dossier de skills de premier niveau créé en cours de session demande `/reload-skills`.
-- La détection ne couvre que le texte de `SKILL.md` ; pour un dossier de skill qui est aussi un plugin, `hooks/`, `.mcp.json`, `agents/` demandent `/reload-plugins`.
+- Claude Code surveille `~/.claude/skills/`, `.claude/skills/` du projet et ceux des dossiers `--add-dir` : ajout, modification ou suppression pris en compte sans redémarrage (sauf mode bare). Un dossier de skills de premier niveau créé en cours de session demande `/reload-skills`, à relancer après chaque changement dans ce dossier.
+- La détection ne couvre que le texte de `SKILL.md` ; pour un dossier de skill qui est aussi un plugin, `hooks/`, `.mcp.json`, `agents/` et `output-styles/` demandent `/reload-plugins`.
 - Supprimer : effacer le dossier (personnel, projet) ; désactiver le plugin ; désactiver le skill sur claude.ai (le supprimer à la main sous `synced/` ne sert à rien, il revient).
 
 ---
@@ -125,7 +132,7 @@ mon-skill/
 - Le frontmatter n'est lu que si la **première ligne** du fichier est `---`. Sinon tout le fichier, marqueurs compris, devient le contenu.
 - YAML invalide : le skill se charge **sans aucun champ** (`/nom` marche, l'auto-invocation non). `claude --debug` montre l'erreur ; `claude plugin validate ~/.claude/skills` (v2.1.233+) trouve les `SKILL.md` invalides.
 - Un champ au nom inexact est **ignoré sans erreur**. Les noms sont en minuscules avec tirets, sauf `when_to_use`.
-- Booléens : `true`/`false`, et depuis v2.1.218 `yes`, `no`, `on`, `off`, `1`, `0` (toute casse).
+- Booléens : `true`/`false`, ou `yes`, `no`, `on`, `off`, `1`, `0` (toute casse).
 - Tous les champs sont optionnels ; seul `description` est recommandé.
 
 ### 4.2 Les 20 champs reconnus par Claude Code
@@ -133,7 +140,7 @@ mon-skill/
 | Champ | Rôle |
 |---|---|
 | `name` | Nom de commande affiché dans `/`. Défaut : nom du dossier. |
-| `description` | Ce que fait le skill et quand l'utiliser. Si absent : première ligne non vide du corps. `description` + `when_to_use` sont tronqués à **1 536 caractères** dans le listing : cas d'usage clé en premier. |
+| `description` | Ce que fait le skill et quand l'utiliser. Si absent : première ligne non vide du corps. `description` + `when_to_use` sont tronqués à **1 536 caractères** dans le listing : cas d'usage clé en premier. Les chevrons s'y affichent en `&lt;` et `&gt;` (section 15). |
 | `when_to_use` | Contexte de déclenchement supplémentaire (phrases, exemples de demandes). Ajouté à `description`, compte dans les 1 536. |
 | `argument-hint` | Indice d'autocomplétion, ex. `"[issue-number]"`. Quoter si crochets, sinon YAML lit une liste (effet : voir la note sous ce tableau). |
 | `arguments` | Arguments positionnels nommés pour la substitution `$nom`. Chaîne séparée par espaces ou liste YAML ; les noms suivent l'ordre des positions. |
@@ -142,18 +149,18 @@ mon-skill/
 | `allowed-tools` | Outils utilisables sans demande **pendant le tour qui invoque le skill** ; l'autorisation tombe au message suivant. Chaîne (espaces ou virgules) ou liste YAML. Pré-approuve, ne restreint pas. |
 | `disallowed-tools` | Outils retirés tant que le skill est actif ; la restriction tombe au message suivant. Ne peut pas retirer `EndConversation` tant qu'un autre outil reste. |
 | `model` | Modèle pour le reste du tour courant (non sauvegardé). Mêmes valeurs que `/model`, ou `inherit`. Ignoré si exclu par `availableModels` ou non supporté en auto mode. Avec `context: fork`, fixe le modèle du subagent. |
-| `effort` | `low`, `medium`, `high`, `xhigh`, `max` ; niveaux disponibles selon le modèle. Remplace l'effort de session. |
+| `effort` | `low`, `medium`, `high`, `xhigh`, `max` ; niveaux disponibles selon le modèle. Vaut pour le reste du tour courant. Remplace l'effort de session, mais pas la variable d'environnement `CLAUDE_CODE_EFFORT_LEVEL`. Avec `context: fork`, fixe l'effort du subagent. |
 | `context` | `fork` : exécution dans un subagent isolé (section 11). |
 | `agent` | Type de subagent avec `context: fork`. Défaut `general-purpose`. |
-| `background` | Avec `context: fork` seulement. `false` : attendre le résultat dans le tour. Défaut `true` (v2.1.218+). |
+| `background` | Avec `context: fork` seulement. `false` : attendre le résultat dans le tour. Défaut `true`. |
 | `hooks` | Hooks enregistrés à l'invocation, actifs jusqu'à la fin de la session. |
 | `paths` | Globs (chaîne séparée par virgules ou liste YAML) qui limitent l'activation aux fichiers correspondants, relatifs au dossier courant de Claude. Format des path-specific rules. Voir section 12. |
-| `shell` | `bash` (défaut) ou `powershell` pour les blocs `` !`cmd` `` et ` ```! `. |
+| `shell` | `bash` (défaut) ou `powershell` pour les blocs `` !`cmd` `` et ` ```! `. `powershell` suppose l'outil PowerShell activé : il l'est par défaut sous Windows sans Git Bash, et avec Git Bash pour les comptes claude.ai et Console ; ailleurs (macOS, Linux, WSL, Bedrock, Agent Platform, Foundry) il faut `CLAUDE_CODE_USE_POWERSHELL_TOOL=1`. Sans cet outil, les commandes passent par bash quand il est disponible. Machine sans bash : section 10. |
 | `metadata` | Map libre pour vos outils ; Claude Code n'en fait rien et ignore une valeur qui n'est pas une map. Ne pas réutiliser des noms de champs (`paths`…) comme clés. |
 | `license` | Licence du skill (standard agentskills.io). Accepté, sans effet. |
 | `compatibility` | Prérequis d'environnement, 500 caractères au plus (standard agentskills.io). Accepté, sans effet. |
 
-**Vérifié en local le 22/10/2026 (2.1.308)** : un `argument-hint: [fichier]` non quoté (lu par YAML comme une liste) n'empêche ni le chargement ni l'invocation du skill. Le rejet « argument-hint must be a string » noté dans une version antérieure de ce document ne se reproduit pas. Quoter reste la forme correcte.
+**Vérifié en local le 22/10/2026 (2.1.308) et le 10/11/2026 (2.1.322)** : un `argument-hint: [fichier]` non quoté (lu par YAML comme une liste) n'empêche ni le chargement ni l'invocation du skill. Le rejet « argument-hint must be a string » noté dans une version antérieure de ce document ne se reproduit pas. Quoter reste la forme correcte.
 
 ### 4.3 Hors de Claude Code : claude.ai, API, `package_skill.py`
 
@@ -168,12 +175,14 @@ Tout autre champ fait **échouer** le téléversement ou le packaging (pas d'ign
 Unexpected key(s) in SKILL.md frontmatter: argument-hint. Allowed properties are: allowed-tools, compatibility, description, license, metadata, name
 ```
 
-**Constat** : la copie de skill-architect téléversée sur claude.ai le 20/09/2026 contenait `argument-hint` et a été acceptée. La doc du 22/10 annonce un refus : appliquer la règle stricte.
+**Constat** : la copie de skill-architect téléversée sur claude.ai le 20/09/2026 contenait `argument-hint` et a été acceptée. La doc du 22/10 annonce un refus, celle du 10/11/2026 aussi : appliquer la règle stricte.
 
 Contraintes du standard agentskills.io sur ces six champs :
 - `name` **requis**, 1 à 64 caractères, `a-z`, `0-9`, `-`, pas de tiret au début ni à la fin, pas de `--`, identique au nom du dossier parent.
 - `description` **requise**, 1 à **1 024** caractères (plus strict que les 1 536 de Claude Code).
 - `compatibility` 1 à 500 caractères ; `metadata` map de chaînes vers chaînes (quoter `"1.0"`) ; `allowed-tools` chaîne séparée par espaces, expérimental.
+
+**best-practices** (guide d'écriture que la doc dit valable pour tous les produits Claude ; non testé au téléversement) : `name` sans balise XML ni mot réservé (`anthropic`, `claude`) ; `description` sans balise XML, rédigée à la troisième personne (ni « je » ni « vous »). **Déduction** : la règle des mots réservés vise le téléversement (claude.ai, API), puisque la doc de Claude Code ne réserve, comme noms de skill, que `synced` et `anthropic-skills` (section 2.1).
 
 La doc cite l'injection de commandes comme fonction du corps propre à Claude Code, inopérante dans le chat claude.ai et via l'API ; les substitutions de variables sont à traiter de même (**Déduction** : elles ne sont documentées que pour Claude Code). Un skill limité aux six champs se charge tel quel dans Claude Code. Le standard demande des **chemins relatifs à la racine du skill** pour les fichiers supports.
 
@@ -183,8 +192,10 @@ La doc cite l'injection de commandes comme fonction du corps propre à Claude Co
 |---|---|---|
 | `~/.claude/skills/` ou `.claude/skills/` | `name` ou nom du dossier (les deux invoquent le skill) | `deploy-staging/` → `/deploy-staging`, ou `/deploy` avec `name: deploy` |
 | Imbriqué en conflit de nom | chemin relatif + nom | `/apps/web:deploy` |
+| Dossier ajouté (`--add-dir`) en conflit de nom, v2.1.309+ | nom du dossier ajouté + nom du skill ; nom du dossier parent en tête si deux dossiers ajoutés portent le même nom | `--add-dir ../cli` → `/cli:verify` ; `--add-dir ../a/cli --add-dir ../b/cli` → `/verify` et `/b/cli:verify` |
 | `.claude/commands/x.md` | nom du fichier | `/x` ; sous-dossier `frontend/x.md` → `/frontend:x` |
 | Plugin `skills/` | `name` ou dossier, préfixé du plugin | `/mon-plugin:review` |
+| `SKILL.md` à la racine d'un plugin | `name`, sinon nom du dossier du plugin | `mon-plugin/SKILL.md` avec `name: review` → `/mon-plugin:review` |
 | Synchronisé claude.ai | nom sur le compte, préfixé | `/anthropic-skills:deploy` ou `/deploy` si libre |
 
 Refusés dans un nom de commande ou un `name` : espace sans chasse, caractère de contrôle, caractère privé ou non attribué (glyphes d'icônes), caractère de direction du texte, blanc autre qu'un espace simple entre deux mots, `<` ou `>`. Un dossier ainsi nommé ne se charge pas ; un `name` ainsi écrit n'est pas affiché ni invocable. Diagnostic : `claude --debug`, chercher `[names]`.
@@ -239,6 +250,7 @@ Règles :
 - La persistance concerne les instructions, pas les permissions : `allowed-tools` tombe au message suivant ; une nouvelle invocation le réapplique pour son tour.
 - Réinvocation à contenu identique : simple note « déjà chargé ». Contenu différent (arguments, sortie d'injection) : contenu complet ajouté à nouveau.
 - **Compaction** : Claude Code rattache après le résumé la dernière invocation de chaque skill, **5 000 premiers tokens** par skill, **budget combiné 25 000 tokens**, rempli à partir du plus récent. Les plus anciens peuvent disparaître. Mettre les instructions critiques en haut.
+- **Vérifié en local le 10/11/2026 (2.1.322)** : le contenu rendu commence après le frontmatter, et les commentaires HTML du corps y figurent comme le reste. Une note d'auteur laissée en commentaire HTML coûte donc du contexte à chaque invocation. Des commentaires YAML dans le frontmatter ne gênent pas le chargement et restent hors du contenu rendu.
 
 ---
 
@@ -256,6 +268,7 @@ Règles :
 - `allowed-tools` pré-approuve pour le tour d'invocation ; tous les outils restent appelables et les réglages de permission gouvernent le reste. Pour une approbation de session, utiliser des règles allow dans les settings.
 - **La confiance de l'espace de travail ne filtre pas ce champ** : un skill projet applique son `allowed-tools` même en `-p` dans un dossier jamais approuvé. Relire les `allowed-tools` des skills d'un dépôt avant d'y lancer Claude Code.
 - `allowManagedPermissionRulesOnly` (managed settings, v2.1.282+) : `allowed-tools` des skills personnels et projet ignoré ; `/status` liste les skills concernés.
+- `strictPluginOnlyCustomization` avec `hooks` (managed settings) : un skill personnel ou projet qui déclare `hooks` perd sa pré-approbation `allowed-tools`, hors les skills que ce réglage épargne (référence des settings). Retirer `hooks` du frontmatter, ou passer le skill dans un plugin.
 - `disallowed-tools` retire des outils tant que le skill est actif (ex. `AskUserQuestion` pour une boucle autonome). Pour bloquer partout : règles deny.
 - Restreindre l'accès aux skills : `Skill` en deny (tous), `Skill(commit)` (nom exact), `Skill(deploy *)` (préfixe). Un deny sur un nom court bloque aussi les variantes imbriquées. Pour autoriser un skill synchronisé sans demande : `Skill(anthropic-skills:pdf)`, ou `Skill(anthropic-skills *)` pour tous.
 
@@ -265,20 +278,24 @@ Règles :
 
 - `` !`commande` `` exécute la commande **avant** l'envoi du contenu à Claude ; la sortie remplace la ligne. Bloc multi-lignes : bloc de code ouvert par ` ```! `.
 - Reconnu seulement en début de ligne ou après un blanc (`KEY=!`cmd`` reste du texte). Une seule passe : la sortie n'est pas réanalysée.
-- Exécution par l'outil Bash (ou PowerShell selon `shell`) dans le **dossier courant de la session**, qui bouge avec `cd` : utiliser `${CLAUDE_SKILL_DIR}` ou `${CLAUDE_PROJECT_DIR}`. stderr fusionné dans stdout (bash). Timeout de l'outil (2 min par défaut).
+- Exécution par l'outil Bash (ou PowerShell selon `shell`) dans le **dossier courant de la session**, qui bouge avec `cd` : utiliser `${CLAUDE_SKILL_DIR}` ou `${CLAUDE_PROJECT_DIR}`. stderr fusionné dans stdout (bash). Timeout de l'outil (2 min par défaut) ; une commande que l'outil passe en arrière-plan au timeout n'empêche pas le rendu. Une sortie trop longue arrive sous forme de chemin de fichier et d'aperçu.
+- **Machine sans bash** (Windows sans Git Bash) : les commandes passent par l'outil PowerShell. Si le frontmatter écrit `shell: bash`, l'invocation échoue avant toute commande (`Skill <nom> requires bash ...`). Une injection écrite en syntaxe bash n'est donc pas portable telle quelle sur ces postes.
 - **Un échec annule toute l'invocation** (`Shell command failed for pattern "..."`) : Claude ne voit rien du skill. Tout code de sortie non nul échoue, sauf code 1 des commandes de recherche ou comparaison. Ajouter `|| true` aux scripts de vérification qui sortent en 1.
-- Permissions : jamais de demande pendant le rendu. Une règle deny annule l'invocation ; hors auto mode, tout ce qui n'est pas « allow » l'annule aussi. Pré-approuver la commande dans `allowed-tools`.
+- Permissions : jamais de demande pendant le rendu. Une règle deny annule l'invocation ; hors auto mode, tout ce qui n'est pas « allow » l'annule aussi. Pré-approuver la commande dans `allowed-tools` (les règles deny et ask passent devant). En auto mode, le skill se charge avec l'ordre de lancer la commande d'abord, sauf pour un skill forké qui fixe `agent` ou dans une session sans outil shell, où l'invocation reste annulée.
+- `No shell command in <nom> was run` : une des commandes contient un caractère que l'outil refuse (voir la référence des erreurs de la doc).
 - `"disableSkillShellExecution": true` remplace chaque commande par `[shell command execution disabled by policy]` (sauf skills intégrés et managed).
 - Jamais exécuté pour un skill synchronisé depuis claude.ai, sur la machine locale (v2.1.228+).
 - Mettre `ultrathink` dans le contenu demande un raisonnement plus profond quand le skill tourne.
-- **Vérifié en local le 22/10/2026 (2.1.308)** : la syntaxe est reconnue y compris dans un span de code Markdown et dans un commentaire HTML, dès qu'elle ouvre une ligne ou suit un blanc. En mode de permission par défaut, une commande non pré-approuvée annule l'invocation (`Shell command permission check failed for pattern ...`) ; en mode auto, Claude reçoit l'ordre de la lancer et la lance. Les variables `${CLAUDE_*}` sont de même substituées partout dans le corps, sans échappement possible (doc, section 5). **Ne jamais écrire une injection ni une variable à titre d'exemple dans un SKILL.md** ; ce fichier de référence n'est pas rendu, il peut les montrer.
+- **Vérifié en local le 10/11/2026 (2.1.322), après un premier constat le 22/10/2026 (2.1.308)** : la commande est exécutée dans un span de code à doubles backticks, dans un bloc de code clôturé et dans un commentaire HTML, dès qu'elle ouvre une ligne ou suit un blanc. Collée à un backtick ou à un signe égal, elle reste du texte. Une forme est restée du texte sans que la cause soit établie : le point d'exclamation placé en fin d'un span de code simple, dont le backtick fermant ouvre la commande. Les variables `${CLAUDE_*}` et les placeholders d'arguments sont substitués partout dans le corps, span de code et commentaire HTML compris ; la barre oblique inverse protège un placeholder d'argument, pas une variable `${CLAUDE_*}` (doc, section 5).
+- **Vérifié en local le 22/10/2026 (2.1.308), non rejoué depuis** : en mode de permission par défaut, une commande non pré-approuvée annule l'invocation (`Shell command permission check failed for pattern ...`) ; en mode auto, Claude reçoit l'ordre de la lancer et la lance.
+- **Ne jamais écrire une injection ni une variable à titre d'exemple dans un SKILL.md** ; ce fichier de référence n'est pas rendu, il peut les montrer.
 
 ---
 
 ## 11. Exécution dans un subagent (`context: fork`)
 
 - Claude Code lance un subagent du type `agent` (défaut `general-purpose`) avec le contenu du skill comme prompt. Il **ne voit pas l'historique** : le skill doit se suffire. Ce n'est pas un fork de la conversation.
-- Par défaut en **arrière-plan** (v2.1.218+) : le résultat arrive à la fin. `background: false` pour attendre dans le tour. Attente forcée aussi en `-p`/SDK, avec `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, si une invocation du même skill tourne déjà, ou depuis une tâche planifiée de session. Un agent de workflow qui invoque un skill forké attend toujours son résultat (v2.1.295+).
+- Par défaut en **arrière-plan** : le résultat arrive à la fin. `background: false` pour attendre dans le tour. Attente forcée aussi en `-p`/SDK, avec `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, si une invocation du même skill tourne déjà, ou depuis une tâche planifiée de session. Un agent de workflow qui invoque un skill forké attend toujours son résultat (v2.1.295+).
 - En arrière-plan, le subagent a le **jeu d'outils réduit** des subagents d'arrière-plan, et ses modifications échappent aux checkpoints (`/rewind` ne les annule pas).
 - `Explore` et `Plan` démarrent sans CLAUDE.md ni git status : tout mettre dans le SKILL.md.
 - Réservé aux skills avec une tâche explicite ; des consignes sans tâche produisent un résultat vide.
@@ -289,11 +306,12 @@ Règles :
 
 **Documenté** : avec `paths`, Claude charge le skill automatiquement seulement quand il travaille sur des fichiers correspondants. Motifs relatifs au dossier courant ; un fichier hors de ce dossier (worktree voisin, même ajouté par `/add-dir`) ne correspond pas. Les fichiers `.claude/commands/` ne supportent pas `paths`.
 
-**Vérifié en local le 22 octobre 2026, Claude Code 2.1.308** (`claude -p`, sortie `stream-json`, 3 skills canaris dans un dépôt jetable) :
-- au démarrage, seul le canari **sans** `paths` figure dans la liste des skills (`claude -p`, message `init`) ; les deux canaris avec `paths` (`"*.twig"` en chaîne, et liste YAML `"**/*.twig"` + `composer.json`) en sont absents ;
-- `/canari-avec-paths` passé en prompt de `claude -p` au démarrage : « commande non installée » (le menu `/` interactif n'a pas été testé) ;
-- après lecture de `sous/page.twig`, un événement `commands_changed` ajoute les deux canaris ; Claude les invoque et ils répondent correctement. `"*.twig"` a donc correspondu à un fichier situé dans un sous-dossier ;
-- témoin négatif (second run, même jour) : un canari `paths: "*.php"` reste absent après la lecture de `sous/page.twig`, quand le canari `"*.twig"` apparaît. L'activation dépend donc bien de la correspondance du motif.
+**Vérifié en local le 10 novembre 2026, Claude Code 2.1.322** (`claude -p`, sortie `stream-json`, skills canaris dans un dépôt jetable ; mêmes constats que le 22 octobre 2026 sur 2.1.308) :
+- au démarrage, les canaris **sans** `paths` figurent dans la liste des skills (message `init`) ; les deux canaris avec `paths` (`"*.twig"` et `"*.php"`, en chaîne) en sont absents. Le 22 octobre, un canari en liste YAML (`"**/*.twig"` + `composer.json`) se comportait de même ;
+- `/canari-twig` passé en prompt de `claude -p` au démarrage n'exécute pas le skill, et Claude répond que la commande n'est pas disponible (le menu `/` interactif n'a pas été testé) ;
+- après lecture de `sous/page.twig` par l'outil Read, un événement `commands_changed` ajoute le canari `"*.twig"` ; Claude l'invoque et il répond correctement. `"*.twig"` a donc correspondu à un fichier situé dans un sous-dossier ;
+- témoin négatif, dans le même run : le canari `paths: "*.php"` reste absent après la lecture de `sous/page.twig`. L'activation dépend donc bien de la correspondance du motif ;
+- dans un autre run, la lecture du même fichier par `cat` dans l'outil Bash n'a déclenché aucun `commands_changed` (une seule observation).
 
 Conséquences :
 - Un skill avec `paths` est **invisible, y compris pour `/nom`** (constaté en `-p`), tant qu'aucun fichier correspondant n'a été lu ou modifié dans la session. Après activation, l'invocation par Claude marche ; un `/nom` tapé après activation n'a pas été testé.
@@ -323,7 +341,7 @@ Ne s'applique pas aux skills de plugin (gérés par `/plugin`). `/skill-doctor` 
 - Méthode officielle : quelques prompts réalistes, chacun dans une **session neuve** avec le skill puis sans (skill personnel ou projet mis en `"off"` dans `skillOverrides`), et comparer. La session neuve évite que le contexte de rédaction masque les trous des instructions.
 - Skill de plugin : `claude plugin eval` (avec et sans plugin, graders, code de sortie non nul sous un seuil ; grader `tool_used: Skill` pour mesurer le déclenchement).
 - Plugin **skill-creator** (`/plugin install skill-creator@claude-plugins-official`) : cas de test dans `evals/evals.json`, un subagent par cas, notation dans `grading.json`, comparaison avec et sans skill dans `benchmark.json`, A/B à l'aveugle entre deux versions, réglage de la description par prompts qui doivent et ne doivent pas déclencher, rapport HTML. Formats non interchangeables avec `claude plugin eval`.
-- **Vérifié en local** (22/10/2026, 2.1.308) : en `claude -p ... --output-format stream-json --verbose`, le message `system`/`init` liste les skills chargés (clé `skills`), les événements `commands_changed` montrent les ajouts en cours de session, et chaque invocation apparaît comme un `tool_use` de l'outil `Skill`. C'est une mesure directe du déclenchement, mais un run n'est qu'un tirage : répéter chaque requête (**skill-creator** : 3 runs par requête par défaut). Lancer ces tests dans un dossier jetable : en mode auto, la tâche s'exécute pour de vrai.
+- **Vérifié en local** (10/11/2026, 2.1.322 ; déjà constaté le 22/10/2026 sur 2.1.308) : en `claude -p ... --output-format stream-json --verbose`, le message `system`/`init` liste les skills chargés (clé `skills`), les événements `commands_changed` montrent les ajouts en cours de session, et chaque invocation décidée par Claude apparaît comme un `tool_use` de l'outil `Skill`. Un skill lancé par `/nom` dans le prompt s'exécute sans `tool_use`. La clé `skills` de `init` donne le nom du dossier, alors que `commands_changed` et l'outil `Skill` utilisent le `name` du frontmatter (le dossier y figure en alias) : les deux coïncident quand `name` égale le dossier. C'est une mesure directe du déclenchement automatique, mais un run n'est qu'un tirage : répéter chaque requête, 3 runs par défaut dans **skill-creator**. Lancer ces tests dans un dossier jetable, car en mode auto la tâche s'exécute pour de vrai.
 
 ---
 
@@ -346,6 +364,8 @@ Ne s'applique pas aux skills de plugin (gérés par `/plugin`). `/skill-doctor` 
 
 **Descriptions coupées** : section 8.
 
+**Chevrons affichés `&lt;` et `&gt;` dans une description** : Claude Code les affiche ainsi dans `description` et `when_to_use`. Écrire `[branche]` au lieu de `<branche>`, ou déplacer le placeholder dans `argument-hint` (Claude Code seulement).
+
 **Skills personnels disparus** : regarder `~/.claude/skills/.trash/` (rétention 30 jours par défaut). Avant v2.1.280, un `manifest.json` dans `~/.claude/skills/` pouvait y déplacer des dossiers.
 
 ---
@@ -363,6 +383,12 @@ allowed-tools: Read Write Bash(npx @wordpress/create-block@latest *)
 
 Generate a WordPress FSE block named `$block` in category `$category`.
 
+## Standing instructions
+
+- Never use inline styles. Always use theme.json tokens.
+- Never use jQuery. Use vanilla JS or @wordpress/element.
+- Wrap all user-facing strings in `__()` with the project text domain.
+
 ## Before scaffolding
 
 - Verify the current theme supports FSE by reading `theme.json`.
@@ -379,12 +405,6 @@ Generate a WordPress FSE block named `$block` in category `$category`.
 
 - Run `npm run build` from the block directory.
 - Output a summary: block name, category, files created, next steps.
-
-## Standing instructions for this task
-
-- Never use inline styles. Always use theme.json tokens.
-- Never use jQuery. Use vanilla JS or @wordpress/element.
-- Wrap all user-facing strings in `__()` with the project text domain.
 ```
 
 Pourquoi il tient :
@@ -392,7 +412,7 @@ Pourquoi il tient :
 - pas de `paths` : le skill doit répondre à `/wp-fse-component` dès le début de session, avant tout fichier ouvert ;
 - `arguments` nommés : `$block` et `$category` plus lisibles que `$0` `$1` ;
 - `allowed-tools` limité au nécessaire ; fichiers supports via `${CLAUDE_SKILL_DIR}` ;
-- consignes permanentes en bas, car le fichier n'est pas relu.
+- consignes permanentes en tête : le fichier n'est pas relu, et le début du corps est la partie conservée après compaction.
 
 Version claude.ai du même skill : supprimer `argument-hint` et `arguments`, remplacer `$block`/`$category` par une consigne qui demande le nom et la catégorie, remplacer `${CLAUDE_SKILL_DIR}/` par des chemins relatifs (`references/block-conventions.md`).
 
@@ -416,14 +436,18 @@ Version claude.ai du même skill : supprimer `argument-hint` et `arguments`, rem
 | Fichier support non référencé | Claude ignore qu'il existe | Add supporting files |
 | Commande injectée qui peut sortir en 1 sans `\|\| true` | Annule toute l'invocation | When an injected command fails |
 | Injection ou variable écrite à titre d'exemple dans le corps | Exécutée ou substituée, même entre backticks ou dans un commentaire HTML | Section 10 (vérifié en local) |
+| Chevrons dans `description` ou `when_to_use` | Affichés en `&lt;` et `&gt;` | Frontmatter reference |
+| `anthropic` ou `claude` dans le `name` d'un skill pour claude.ai | Mots réservés | best-practices (non testé) |
+| Injection en syntaxe bash dans un skill utilisé sous Windows sans Git Bash | Lancée par PowerShell, ou invocation en échec avec `shell: bash` | How injected commands run |
+| Notes d'auteur en commentaires HTML dans le corps | Envoyées au modèle à chaque invocation | Section 7 (vérifié en local) |
 
 ---
 
 ## 18. Checklist de validation
 
-- [ ] Nom du dossier : minuscules, chiffres, tirets, 64 caractères max, pas de tiret en bord ni `--` ; `name` identique au dossier.
+- [ ] Nom du dossier : minuscules, chiffres, tirets, 64 caractères max, pas de tiret en bord ni `--` ; `name` identique au dossier ; pour claude.ai, ni `anthropic` ni `claude`.
 - [ ] `SKILL.md` à la racine, `---` en première ligne, YAML valide.
-- [ ] `description` présente, cas d'usage en tête ; `description` + `when_to_use` sous 1 536 caractères (sous 1 024 pour claude.ai).
+- [ ] `description` présente, cas d'usage en tête, sans chevrons ; `description` + `when_to_use` sous 1 536 caractères (sous 1 024 pour claude.ai).
 - [ ] Champs limités à ceux de la section 4.2 (Claude Code) ou aux six de la section 4.3 (claude.ai, API).
 - [ ] `disable-model-invocation: true` si et seulement si invocation manuelle voulue.
 - [ ] `paths` seulement pour un skill lié à des fichiers, jamais pour un skill appelé par `/nom` en début de session, jamais pour claude.ai.
