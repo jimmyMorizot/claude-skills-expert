@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================================
-# install.sh — Link skill-architect into ~/.claude/skills/
+# install.sh: link skill-architect into ~/.claude/skills/
 #
 # The skill is installed as a symlink, not a copy, so the repo stays the single
 # source of truth: edits made through ~/.claude/skills/skill-architect land in
@@ -19,12 +19,12 @@ SOURCE_DIR="$SCRIPT_DIR/skill"
 TARGET_DIR="$HOME/.claude/skills/skill-architect"
 
 echo -e "${BLUE}============================================${NC}"
-echo -e "${BLUE}  Claude Skills Expert — Installation${NC}"
+echo -e "${BLUE}  Claude Skills Expert: installation${NC}"
 echo -e "${BLUE}============================================${NC}"
 
 if ! command -v claude &> /dev/null; then
     echo "Warning: 'claude' command not found. Install Claude Code first:"
-    echo "  npm install -g @anthropic-ai/claude-code"
+    echo "  curl -fsSL https://claude.ai/install.sh | bash"
 fi
 
 mkdir -p "$HOME/.claude/skills"

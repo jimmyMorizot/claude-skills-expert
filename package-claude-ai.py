@@ -29,7 +29,7 @@ NOTICE = (
     "> **Variante claude.ai.** Les emplacements `~/.claude/skills`, `.claude/skills` et "
     "`/reload-skills` sont propres à Claude Code : sur claude.ai, produire les fichiers du "
     "skill dans le sandbox d'exécution de code et livrer un zip téléchargeable (dossier "
-    "racine = nom du skill). `$0` désigne le nom de skill donné dans la conversation. Les "
+    "racine = nom du skill). Les "
     "mentions de la variable CLAUDE_SKILL_DIR ci-dessous concernent les skills Claude Code que tu "
     "génères, pas ce skill-ci, dont les fichiers se lisent en chemins relatifs.\n"
 )
@@ -63,7 +63,7 @@ def field(lines, key):
 
 
 # Claude Code runs an injection and substitutes a CLAUDE_* variable anywhere in a SKILL.md
-# body, even inside backticks or an HTML comment (checked on 2.1.308, 22/10/2026). Writing one
+# body, even inside backticks or an HTML comment (checked on 2.1.322, 10/11/2026). Writing one
 # as an example breaks the skill, so the build refuses it in the sources.
 INJECTION = re.compile(r"(?:^|\s)!`|^```!", re.M)
 
@@ -74,17 +74,27 @@ def check_sources(body):
         rest = rest.replace(old, "")
     if INJECTION.search(body):
         fail("skill/SKILL.md : injection dans le corps (point d'exclamation suivi d'un backtick)")
-    if "${CLAUDE_" in rest or "$ARGUMENTS" in rest or re.search(r"\$[1-9]", rest):
-        fail("skill/SKILL.md : variable ou placeholder écrit dans le corps hors des références opérationnelles (seul $0 est voulu)")
+    # No argument placeholder at all: Claude Code appends an "ARGUMENTS: ..." line to the
+    # rendered content when none receives the arguments, which suits a name or a free request.
+    if "${CLAUDE_" in rest or "$ARGUMENTS" in rest or re.search(r"\$[0-9]", rest):
+        fail("skill/SKILL.md : variable ou placeholder écrit dans le corps hors des références opérationnelles (aucun placeholder d'argument n'est voulu)")
     _, template_body = split_frontmatter((SOURCE / "templates" / "SKILL.md.template").read_text(encoding="utf-8"), "templates/SKILL.md.template")
     if INJECTION.search(template_body) or "$ARGUMENTS" in template_body or "${CLAUDE_" in template_body or re.search(r"\$[0-9]", template_body):
         fail("templates/SKILL.md.template : injection, variable ou placeholder dans le corps")
+
+
+def check_spec_copy():
+    # The README promises that the spec at the repo root stays identical to the one in skill/.
+    spec = Path("references") / "skills-spec-officielle.md"
+    if (ROOT / spec).read_bytes() != (SOURCE / spec).read_bytes():
+        fail(f"{spec} (racine) diffère de skill/{spec} : recopier la version de skill/")
 
 
 def main():
     text = (SOURCE / "SKILL.md").read_text(encoding="utf-8")
     lines, body = split_frontmatter(text, "skill/SKILL.md")
     check_sources(body)
+    check_spec_copy()
 
     if field(lines, "name") != NAME:
         fail(f"name doit valoir {NAME}, comme le dossier racine du zip")
